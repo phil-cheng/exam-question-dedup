@@ -3,7 +3,8 @@
 > 状态：已对齐（查重场景，远程 Ollama / vLLM）  
 > 配套：[需求说明](./需求.md) · [为何混合 embedding 与 BM25](./为何混合embedding与BM25.md)
 
-本工具**不打包模型**。用户自己用 Ollama 或 vLLM 起一个 embedding 服务，填 Base URL + 模型名。  
+本工具**不打包模型**。用户填 OpenAI 兼容的 Base URL + 模型名 +（在线服务需要的）API Key。  
+本地可以是 Ollama / vLLM；在线可以是硅基流动等。  
 本文只回答：在「中文试题近重复、万级一次编完」这个约束下，怎么选、选多大。
 
 一手来源：[Ollama qwen3-embedding](https://ollama.com/library/qwen3-embedding)、[Qwen3 Embedding 博客](https://qwenlm.github.io/blog/qwen3-embedding/)。
@@ -19,7 +20,15 @@
 | 0.6B 明显漏「换说法的真重复」 | 再升 `qwen3-embedding:4b` |
 | 不要当默认 | `qwen3-embedding` / `:8b` / `:latest`（实际是 8B） |
 
-程序侧：`http://127.0.0.1:11434/v1` + 上面的模型名。先不用 Qwen 的任务指令。
+程序侧示例：
+
+```
+地址:  http://127.0.0.1:11434/v1          （本地，Key 可空）
+地址:  https://api.siliconflow.cn/v1      （在线，必须填 Key）
+模型:  qwen3-embedding:0.6b  或  BAAI/bge-m3
+```
+
+先不用 Qwen 的任务指令。
 
 ---
 

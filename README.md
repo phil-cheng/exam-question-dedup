@@ -1,4 +1,4 @@
-# 试题近重复查重
+# 试题文义查重
 
 对**同一份**标准试题 Excel 做近重复查重：找出换了说法、但仍是同一道题的题对。不落库，关掉即丢。
 
@@ -44,9 +44,9 @@ python main.py --cli test.xls --threshold 0.82
 
 | 字段 | 含义 | 是否给用户看 |
 |---|---|---|
-| `embed_base_url` | Ollama / vLLM 地址，优先走 OpenAI 兼容 `/v1/embeddings` | 界面可填 |
+| `embed_base_url` | OpenAI 兼容地址：本地 Ollama/vLLM，或硅基流动等在线服务 | 界面可填 |
 | `embed_model` | 模型名 | 界面可填 |
-| `embed_api_key` | 可选，部分 vLLM 需要 | 仅配置文件 |
+| `embed_api_key` | 在线服务必填；本地 Ollama 可空。界面密文显示 | 界面可填 |
 | `semantic_weight` | 有向量时综合分里语义占比，默认 `0.7`（其余 0.3 给 BM25） | **不暴露**，改文件即可 |
 
 开发时配置写在项目根；打包后写在 exe 同一目录。

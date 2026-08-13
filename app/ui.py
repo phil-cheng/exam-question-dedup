@@ -5,6 +5,8 @@ from __future__ import annotations
 import shutil
 import threading
 import tkinter as tk
+from datetime import datetime
+from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 import customtkinter as ctk
@@ -24,7 +26,7 @@ def _short(text: str, limit: int = 36) -> str:
 class DedupApp(ctk.CTk):
     def __init__(self) -> None:
         super().__init__()
-        self.title("试题近重复查重")
+        self.title("试题文义查重")
         self.geometry("1120x720")
         self.minsize(900, 600)
 
@@ -33,6 +35,7 @@ class DedupApp(ctk.CTk):
         self.excel_path = tk.StringVar(value="")
         self.url_var = tk.StringVar(value=self.cfg.embed_base_url)
         self.model_var = tk.StringVar(value=self.cfg.embed_model)
+        self.key_var = tk.StringVar(value=self.cfg.embed_api_key)
         self.threshold = tk.DoubleVar(value=DEFAULT_THRESHOLD)
         self.status = tk.StringVar(value="请选择标准模板 Excel（须含工作表「正式题目」）")
         self.busy = False
@@ -45,55 +48,84 @@ class DedupApp(ctk.CTk):
         root = ctk.CTkFrame(self, fg_color="transparent")
         root.pack(fill="both", expand=True, padx=12, pady=12)
 
-        ctk.CTkLabel(
-            root, text="试题近重复查重", font=ctk.CTkFont(size=22, weight="bold")
-        ).pack(anchor="w", padx=4, pady=(0, 4))
-        ctk.CTkLabel(
-            root,
-            text="同一份表内部互查。阈值只过滤，不重新计算。无向量服务时自动走 BM25。",
-            text_color=("gray30", "gray70"),
-        ).pack(anchor="w", padx=4, pady=(0, 10))
+        # 窗口标题已说明用途，这里只放操作步骤
+        steps = ctk.CTkFrame(root, fg_color="transparent")
+        steps.pack(fill="x", padx=4, pady=(0, 8))
+        step_font = ctk.CTkFont(size=13)
+        for line in (
+            "1、下载模板并按格式填写试题。",
+            "2、选择 Excel 进行查重（系统支持语义 + 文本混合查重，使用语义时需配置下方的向量模型参数）。",
+            "3、通过调节相似度滑轨得出理想的分界线。",
+        ):
+            ctk.CTkLabel(
+                steps, text=line, font=step_font, text_color=("gray25", "gray75"), anchor="w"
+            ).pack(anchor="w", pady=1)
 
         file_row = ctk.CTkFrame(root)
         file_row.pack(fill="x", **pad)
+        ctk.CTkButton(
+            file_row,
+            text="下载模板",
+            width=110,
+            command=self._download_template,
+            fg_color=("gray70", "gray40"),
+            hover_color=("gray60", "gray35"),
+            text_color=("gray15", "gray90"),
+        ).pack(side="left", padx=8, pady=10)
         ctk.CTkButton(file_row, text="选择 Excel", width=110, command=self._pick_file).pack(
-            side="left", padx=8, pady=10
-        )
-        ctk.CTkButton(file_row, text="下载模板", width=110, command=self._download_template).pack(
             side="left", padx=(0, 8), pady=10
         )
         ctk.CTkEntry(file_row, textvariable=self.excel_path).pack(
             side="left", fill="x", expand=True, padx=(0, 8), pady=10
         )
 
+        # 地址 / 模型 / Key 同一色块，视觉上是一组配置
         emb = ctk.CTkFrame(root)
         emb.pack(fill="x", **pad)
-        ctk.CTkLabel(emb, text="向量服务（可选）").pack(side="left", padx=(10, 6), pady=10)
-        ctk.CTkEntry(
-            emb, textvariable=self.url_var, placeholder_text="http://127.0.0.1:11434/v1", width=320
-        ).pack(side="left", padx=4, pady=10)
-        ctk.CTkLabel(emb, text="模型").pack(side="left", padx=(8, 4))
-        ctk.CTkEntry(emb, textvariable=self.model_var, placeholder_text="bge-m3", width=160).pack(
-            side="left", padx=4, pady=10
-        )
-        ctk.CTkButton(emb, text="保存配置", width=90, command=self._save_cfg).pack(
-            side="left", padx=8, pady=10
-        )
 
-        run_row = ctk.CTkFrame(root)
-        run_row.pack(fill="x", **pad)
+        url_row = ctk.CTkFrame(emb, fg_color="transparent")
+        url_row.pack(fill="x", padx=8, pady=(10, 4))
+        ctk.CTkLabel(url_row, text="向量服务 URL", width=100, anchor="w").pack(side="left")
+        ctk.CTkEntry(
+            url_row,
+            textvariable=self.url_var,
+            placeholder_text="http://127.0.0.1:11434/v1 或 https://api.siliconflow.cn/v1",
+        ).pack(side="left", fill="x", expand=True, padx=(6, 0))
+
+        mk_row = ctk.CTkFrame(emb, fg_color="transparent")
+        mk_row.pack(fill="x", padx=8, pady=(4, 10))
+        ctk.CTkLabel(mk_row, text="模型", width=100, anchor="w").pack(side="left")
+        ctk.CTkEntry(
+            mk_row, textvariable=self.model_var, placeholder_text="qwen3-embedding:0.6b", width=220
+        ).pack(side="left", padx=(6, 16))
+        ctk.CTkLabel(mk_row, text="API Key").pack(side="left")
+        ctk.CTkEntry(
+            mk_row,
+            textvariable=self.key_var,
+            placeholder_text="在线服务必填，本地可空",
+            show="*",
+            width=240,
+        ).pack(side="left", padx=(6, 12))
+        ctk.CTkButton(mk_row, text="保存配置", width=90, command=self._save_cfg).pack(side="left")
+
+        # 查重动作和阈值过滤同一色块
+        action = ctk.CTkFrame(root)
+        action.pack(fill="x", **pad)
+
+        run_row = ctk.CTkFrame(action, fg_color="transparent")
+        run_row.pack(fill="x", padx=8, pady=(10, 4))
         self.btn_run = ctk.CTkButton(run_row, text="开始查重", width=120, command=self._start)
-        self.btn_run.pack(side="left", padx=8, pady=10)
+        self.btn_run.pack(side="left")
         self.progress = ctk.CTkProgressBar(run_row, width=280)
-        self.progress.pack(side="left", padx=8)
+        self.progress.pack(side="left", padx=12)
         self.progress.set(0)
         ctk.CTkLabel(run_row, textvariable=self.status).pack(
-            side="left", padx=8, fill="x", expand=True
+            side="left", padx=4, fill="x", expand=True
         )
 
-        filt = ctk.CTkFrame(root)
-        filt.pack(fill="x", **pad)
-        ctk.CTkLabel(filt, text="相似度 ≥").pack(side="left", padx=(10, 4), pady=10)
+        filt = ctk.CTkFrame(action, fg_color="transparent")
+        filt.pack(fill="x", padx=8, pady=(4, 10))
+        ctk.CTkLabel(filt, text="相似度 ≥").pack(side="left")
         self.lbl_th = ctk.CTkLabel(filt, text="82%", width=48)
         self.lbl_th.pack(side="left")
         self.slider = ctk.CTkSlider(
@@ -105,13 +137,13 @@ class DedupApp(ctk.CTk):
             command=self._on_slide,
             width=360,
         )
-        self.slider.pack(side="left", padx=8, pady=10)
+        self.slider.pack(side="left", padx=8)
         self.lbl_hit = ctk.CTkLabel(filt, text="命中 0 对")
         self.lbl_hit.pack(side="left", padx=8)
         self.btn_export = ctk.CTkButton(
             filt, text="导出当前结果", width=120, command=self._export, state="disabled"
         )
-        self.btn_export.pack(side="right", padx=8, pady=10)
+        self.btn_export.pack(side="right")
 
         table = ctk.CTkFrame(root)
         table.pack(fill="both", expand=True, padx=16, pady=(4, 8))
@@ -154,6 +186,7 @@ class DedupApp(ctk.CTk):
     def _sync_cfg_from_form(self) -> None:
         self.cfg.embed_base_url = self.url_var.get().strip()
         self.cfg.embed_model = self.model_var.get().strip()
+        self.cfg.embed_api_key = self.key_var.get().strip()
 
     def _save_cfg(self) -> None:
         self._sync_cfg_from_form()
@@ -246,7 +279,7 @@ class DedupApp(ctk.CTk):
         self.btn_run.configure(state="normal")
         self.progress.set(1)
         self.result = result
-        mode = "BM25 + 向量" if result.has_vectors else "仅 BM25"
+        mode = "文本 + 语义" if result.has_vectors else "仅文本"
         extra = ""
         if result.fallback_reason:
             extra = f"（向量失败已回退：{result.fallback_reason}）"
@@ -290,9 +323,14 @@ class DedupApp(ctk.CTk):
         if not rows:
             messagebox.showinfo("无结果", "当前阈值下没有题对。")
             return
+        src = Path(self.excel_path.get().strip())
+        stem = src.stem or "导出"
+        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         dest = filedialog.asksaveasfilename(
             title="导出查重结果",
             defaultextension=".xlsx",
+            initialfile=f"{stem}-查重结果-{stamp}.xlsx",
+            initialdir=str(src.parent) if src.parent.is_dir() else None,
             filetypes=[("Excel", "*.xlsx")],
         )
         if not dest:

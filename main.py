@@ -1,4 +1,4 @@
-"""试题近重复查重入口。无参数开界面；--cli <xls> 打命令行结果便于验收。"""
+"""试题文义查重入口。无参数开界面；--cli <xls> 打命令行结果便于验收。"""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ def _cli(path: str, threshold: float) -> int:
     except TemplateError as exc:
         print(exc, file=sys.stderr)
         return 2
-    mode = "BM25+向量" if result.has_vectors else "仅BM25"
+    mode = "文本+语义" if result.has_vectors else "仅文本"
     if result.fallback_reason:
         print("回退:", result.fallback_reason)
     rows = result.scored(threshold)
@@ -30,7 +30,7 @@ def _cli(path: str, threshold: float) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="试题近重复查重")
+    parser = argparse.ArgumentParser(description="试题文义查重")
     parser.add_argument("--cli", metavar="XLS", help="命令行跑一份表并打印题对")
     parser.add_argument("--threshold", type=float, default=0.82)
     args = parser.parse_args()
