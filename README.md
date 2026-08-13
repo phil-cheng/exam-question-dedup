@@ -40,7 +40,7 @@ python main.py --cli test.xls --threshold 0.82
 
 ## 配置
 
-把 `config.example.json` 拷到程序旁，改名为 `config.json`。界面里点「保存配置」也会写出这个文件。
+把 `config.example.json` 拷到程序旁，改名为 `config.json`。界面「保存配置」会先向向量服务发一条测试文本，通过才写入；「清空配置」直接置空并保存，查重回退为纯文本。
 
 | 字段 | 含义 | 是否给用户看 |
 |---|---|---|

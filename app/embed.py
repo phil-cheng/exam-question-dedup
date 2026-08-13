@@ -83,6 +83,7 @@ def embed_texts(
     api_key: str = "",
     batch_size: int = 32,
     on_progress: ProgressFn | None = None,
+    read_timeout: float = 180.0,
 ) -> np.ndarray:
     if not texts:
         raise EmbedError("没有可向量化的文本。")
@@ -90,7 +91,7 @@ def embed_texts(
     if not base or not model.strip():
         raise EmbedError("未配置向量服务地址或模型名。")
 
-    timeout = httpx.Timeout(connect=10.0, read=180.0, write=30.0, pool=10.0)
+    timeout = httpx.Timeout(connect=10.0, read=read_timeout, write=30.0, pool=10.0)
     openai_url = _openai_url(base)
     ollama_url = _ollama_url(base)
     use_ollama = False
@@ -143,3 +144,17 @@ def embed_texts(
     if arr.ndim != 2:
         raise EmbedError("向量维度不一致，无法组成矩阵。")
     return arr
+
+
+def probe_embed(base_url: str, model: str, api_key: str = "") -> int:
+    """发一条短文本探测服务是否可用，成功返回向量维度。"""
+    vec = embed_texts(
+        ["试题文义查重连通测试"],
+        base_url,
+        model,
+        api_key,
+        read_timeout=30.0,
+    )
+    if vec.shape[0] != 1 or vec.shape[1] < 8:
+        raise EmbedError("向量服务返回的数据无效。")
+    return int(vec.shape[1])
