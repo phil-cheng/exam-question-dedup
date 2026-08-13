@@ -1,0 +1,320 @@
+"""桌面界面：选表、查重、滑条过滤、导出。"""
+
+from __future__ import annotations
+
+import shutil
+import threading
+import tkinter as tk
+from tkinter import filedialog, messagebox, ttk
+
+import customtkinter as ctk
+
+from app.config import AppConfig, load_config, save_config, template_path
+from app.excel_io import TemplateError, export_pairs
+from app.pipeline import RunResult, run_dedup
+
+DEFAULT_THRESHOLD = 0.82
+
+
+def _short(text: str, limit: int = 36) -> str:
+    text = (text or "").replace("\n", " ")
+    return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
+class DedupApp(ctk.CTk):
+    def __init__(self) -> None:
+        super().__init__()
+        self.title("试题近重复查重")
+        self.geometry("1120x720")
+        self.minsize(900, 600)
+
+        self.cfg: AppConfig = load_config()
+        self.result: RunResult | None = None
+        self.excel_path = tk.StringVar(value="")
+        self.url_var = tk.StringVar(value=self.cfg.embed_base_url)
+        self.model_var = tk.StringVar(value=self.cfg.embed_model)
+        self.threshold = tk.DoubleVar(value=DEFAULT_THRESHOLD)
+        self.status = tk.StringVar(value="请选择标准模板 Excel（须含工作表「正式题目」）")
+        self.busy = False
+
+        self._build()
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    def _build(self) -> None:
+        pad = {"padx": 16, "pady": 8}
+        root = ctk.CTkFrame(self, fg_color="transparent")
+        root.pack(fill="both", expand=True, padx=12, pady=12)
+
+        ctk.CTkLabel(
+            root, text="试题近重复查重", font=ctk.CTkFont(size=22, weight="bold")
+        ).pack(anchor="w", padx=4, pady=(0, 4))
+        ctk.CTkLabel(
+            root,
+            text="同一份表内部互查。阈值只过滤，不重新计算。无向量服务时自动走 BM25。",
+            text_color=("gray30", "gray70"),
+        ).pack(anchor="w", padx=4, pady=(0, 10))
+
+        file_row = ctk.CTkFrame(root)
+        file_row.pack(fill="x", **pad)
+        ctk.CTkButton(file_row, text="选择 Excel", width=110, command=self._pick_file).pack(
+            side="left", padx=8, pady=10
+        )
+        ctk.CTkButton(file_row, text="下载模板", width=110, command=self._download_template).pack(
+            side="left", padx=(0, 8), pady=10
+        )
+        ctk.CTkEntry(file_row, textvariable=self.excel_path).pack(
+            side="left", fill="x", expand=True, padx=(0, 8), pady=10
+        )
+
+        emb = ctk.CTkFrame(root)
+        emb.pack(fill="x", **pad)
+        ctk.CTkLabel(emb, text="向量服务（可选）").pack(side="left", padx=(10, 6), pady=10)
+        ctk.CTkEntry(
+            emb, textvariable=self.url_var, placeholder_text="http://127.0.0.1:11434/v1", width=320
+        ).pack(side="left", padx=4, pady=10)
+        ctk.CTkLabel(emb, text="模型").pack(side="left", padx=(8, 4))
+        ctk.CTkEntry(emb, textvariable=self.model_var, placeholder_text="bge-m3", width=160).pack(
+            side="left", padx=4, pady=10
+        )
+        ctk.CTkButton(emb, text="保存配置", width=90, command=self._save_cfg).pack(
+            side="left", padx=8, pady=10
+        )
+
+        run_row = ctk.CTkFrame(root)
+        run_row.pack(fill="x", **pad)
+        self.btn_run = ctk.CTkButton(run_row, text="开始查重", width=120, command=self._start)
+        self.btn_run.pack(side="left", padx=8, pady=10)
+        self.progress = ctk.CTkProgressBar(run_row, width=280)
+        self.progress.pack(side="left", padx=8)
+        self.progress.set(0)
+        ctk.CTkLabel(run_row, textvariable=self.status).pack(
+            side="left", padx=8, fill="x", expand=True
+        )
+
+        filt = ctk.CTkFrame(root)
+        filt.pack(fill="x", **pad)
+        ctk.CTkLabel(filt, text="相似度 ≥").pack(side="left", padx=(10, 4), pady=10)
+        self.lbl_th = ctk.CTkLabel(filt, text="82%", width=48)
+        self.lbl_th.pack(side="left")
+        self.slider = ctk.CTkSlider(
+            filt,
+            from_=0.50,
+            to=0.99,
+            number_of_steps=49,
+            variable=self.threshold,
+            command=self._on_slide,
+            width=360,
+        )
+        self.slider.pack(side="left", padx=8, pady=10)
+        self.lbl_hit = ctk.CTkLabel(filt, text="命中 0 对")
+        self.lbl_hit.pack(side="left", padx=8)
+        self.btn_export = ctk.CTkButton(
+            filt, text="导出当前结果", width=120, command=self._export, state="disabled"
+        )
+        self.btn_export.pack(side="right", padx=8, pady=10)
+
+        table = ctk.CTkFrame(root)
+        table.pack(fill="both", expand=True, padx=16, pady=(4, 8))
+        cols = ("score", "code_a", "code_b", "type_a", "type_b", "stem_a", "stem_b")
+        self.tree = ttk.Treeview(table, columns=cols, show="headings", height=16)
+        headings = {
+            "score": "相似度",
+            "code_a": "编号A",
+            "code_b": "编号B",
+            "type_a": "题型A",
+            "type_b": "题型B",
+            "stem_a": "题干A",
+            "stem_b": "题干B",
+        }
+        widths = {
+            "score": 80,
+            "code_a": 90,
+            "code_b": 90,
+            "type_a": 80,
+            "type_b": 80,
+            "stem_a": 280,
+            "stem_b": 280,
+        }
+        for key, title in headings.items():
+            self.tree.heading(key, text=title)
+            self.tree.column(key, width=widths[key], anchor="w")
+        scroll = ttk.Scrollbar(table, orient="vertical", command=self.tree.yview)
+        self.tree.configure(yscrollcommand=scroll.set)
+        self.tree.pack(side="left", fill="both", expand=True, padx=(8, 0), pady=8)
+        scroll.pack(side="right", fill="y", pady=8, padx=(0, 8))
+
+        style = ttk.Style()
+        try:
+            style.theme_use("clam")
+        except tk.TclError:
+            pass
+        style.configure("Treeview", rowheight=26, font=("Microsoft YaHei UI", 10))
+        style.configure("Treeview.Heading", font=("Microsoft YaHei UI", 10, "bold"))
+
+    def _sync_cfg_from_form(self) -> None:
+        self.cfg.embed_base_url = self.url_var.get().strip()
+        self.cfg.embed_model = self.model_var.get().strip()
+
+    def _save_cfg(self) -> None:
+        self._sync_cfg_from_form()
+        try:
+            save_config(self.cfg)
+        except OSError as exc:
+            messagebox.showerror("保存失败", str(exc))
+            return
+        messagebox.showinfo("已保存", "已写入程序目录下的 config.json。")
+
+    def _pick_file(self) -> None:
+        path = filedialog.askopenfilename(
+            title="选择试题 Excel",
+            filetypes=[("Excel", "*.xls *.xlsx"), ("所有文件", "*.*")],
+        )
+        if path:
+            self.excel_path.set(path)
+
+    def _download_template(self) -> None:
+        """把内置 template.xls 另存到用户指定位置。"""
+        src = template_path()
+        if not src.is_file():
+            messagebox.showerror("找不到模板", "程序未附带 template.xls，请重新打包或放到程序目录。")
+            return
+        dest = filedialog.asksaveasfilename(
+            title="保存试题模板",
+            defaultextension=".xls",
+            initialfile="试题导入模板.xls",
+            filetypes=[("Excel 97-2003", "*.xls"), ("所有文件", "*.*")],
+        )
+        if not dest:
+            return
+        try:
+            shutil.copy2(src, dest)
+        except OSError as exc:
+            messagebox.showerror("保存失败", str(exc))
+            return
+        messagebox.showinfo("已保存", dest)
+
+    def _on_slide(self, _value=None) -> None:
+        th = float(self.threshold.get())
+        self.lbl_th.configure(text=f"{th:.0%}")
+        self._refresh_table()
+
+    def _start(self) -> None:
+        if self.busy:
+            return
+        path = self.excel_path.get().strip()
+        if not path:
+            messagebox.showwarning("提示", "请先选择 Excel 文件。")
+            return
+        self._sync_cfg_from_form()
+        self.busy = True
+        self.btn_run.configure(state="disabled")
+        self.btn_export.configure(state="disabled")
+        self.progress.set(0)
+        self.status.set("正在查重…")
+        threading.Thread(target=self._worker, args=(path,), daemon=True).start()
+
+    def _worker(self, path: str) -> None:
+        try:
+            result = run_dedup(path, self.cfg, on_progress=self._progress_from_thread)
+        except TemplateError as exc:
+            self.after(0, lambda: self._fail(str(exc)))
+            return
+        except Exception as exc:  # noqa: BLE001 — 界面线程需要兜底
+            self.after(0, lambda: self._fail(f"查重失败：{exc}"))
+            return
+        self.after(0, lambda: self._ok(result))
+
+    def _progress_from_thread(self, msg: str, cur: int, total: int) -> None:
+        def apply() -> None:
+            self.status.set(msg if not total else f"{msg}  {cur}/{total}")
+            if total > 0:
+                self.progress.set(cur / total)
+            else:
+                self.progress.set(0.15)
+
+        self.after(0, apply)
+
+    def _fail(self, msg: str) -> None:
+        self.busy = False
+        self.btn_run.configure(state="normal")
+        self.progress.set(0)
+        self.status.set(msg)
+        messagebox.showerror("无法查重", msg)
+
+    def _ok(self, result: RunResult) -> None:
+        self.busy = False
+        self.btn_run.configure(state="normal")
+        self.progress.set(1)
+        self.result = result
+        mode = "BM25 + 向量" if result.has_vectors else "仅 BM25"
+        extra = ""
+        if result.fallback_reason:
+            extra = f"（向量失败已回退：{result.fallback_reason}）"
+            messagebox.showwarning("已回退到 BM25", result.fallback_reason)
+        self.status.set(f"完成 · {mode} · 共 {len(result.questions)} 题 {extra}")
+        self._refresh_table()
+
+    def _refresh_table(self) -> None:
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        if not self.result:
+            self.lbl_hit.configure(text="命中 0 对")
+            self.btn_export.configure(state="disabled")
+            return
+        th = float(self.threshold.get())
+        rows = self.result.scored(th)
+        qs = self.result.questions
+        for pair, score in rows:
+            a, b = qs[pair.i], qs[pair.j]
+            self.tree.insert(
+                "",
+                "end",
+                values=(
+                    f"{score:.2%}",
+                    a.code,
+                    b.code,
+                    a.qtype,
+                    b.qtype,
+                    _short(a.stem),
+                    _short(b.stem),
+                ),
+            )
+        self.lbl_hit.configure(text=f"命中 {len(rows)} 对")
+        self.btn_export.configure(state="normal" if rows else "disabled")
+
+    def _export(self) -> None:
+        if not self.result:
+            return
+        th = float(self.threshold.get())
+        rows = self.result.scored(th)
+        if not rows:
+            messagebox.showinfo("无结果", "当前阈值下没有题对。")
+            return
+        dest = filedialog.asksaveasfilename(
+            title="导出查重结果",
+            defaultextension=".xlsx",
+            filetypes=[("Excel", "*.xlsx")],
+        )
+        if not dest:
+            return
+        try:
+            export_pairs(
+                dest,
+                self.result.questions,
+                [p for p, _ in rows],
+                [s for _, s in rows],
+            )
+        except OSError as exc:
+            messagebox.showerror("导出失败", str(exc))
+            return
+        messagebox.showinfo("已导出", dest)
+
+    def _on_close(self) -> None:
+        self.destroy()
+
+
+def run() -> None:
+    ctk.set_appearance_mode("light")
+    ctk.set_default_color_theme("blue")
+    app = DedupApp()
+    app.mainloop()
