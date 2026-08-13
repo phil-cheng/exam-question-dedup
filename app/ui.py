@@ -11,6 +11,7 @@ from tkinter import filedialog, messagebox, ttk
 
 import customtkinter as ctk
 
+from app.compare import CompareDialog
 from app.config import AppConfig, load_config, save_config, template_path
 from app.embed import EmbedError, probe_embed
 from app.excel_io import TemplateError, export_pairs
@@ -46,6 +47,10 @@ class DedupApp(ctk.CTk):
         self.threshold = tk.DoubleVar(value=DEFAULT_THRESHOLD)
         self.status = tk.StringVar(value="请选择标准模板 Excel（须含工作表「正式题目」）")
         self.busy = False
+        # 当前滑条过滤后的题对；比对窗按这个顺序翻
+        self._visible: list = []
+        self._compare_idx: int | None = None
+        self._compare_win: CompareDialog | None = None
 
         self._build()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -62,7 +67,7 @@ class DedupApp(ctk.CTk):
         for line in (
             "1、下载模板并按格式填写试题。",
             "2、使用语义比较时先配置向量模型，再选择 Excel 进行查重（支持文本 + 语义混合）。",
-            "3、查重结束后，通过调节相似度滑轨得出理想的分界线。",
+            "3、查重结束后调节相似度滑轨；双击或回车打开左右比对，可用上一对 / 下一对连续复核。",
             "4、备注：系统通过题干 + 非空选项进行比较。",
         ):
             ctk.CTkLabel(
@@ -232,6 +237,8 @@ class DedupApp(ctk.CTk):
             pass
         style.configure("Treeview", rowheight=26, font=("Microsoft YaHei UI", 10))
         style.configure("Treeview.Heading", font=("Microsoft YaHei UI", 10, "bold"))
+        self.tree.bind("<Double-1>", self._on_tree_open)
+        self.tree.bind("<Return>", self._on_tree_open)
 
     def _sync_cfg_from_form(self) -> None:
         self.cfg.embed_base_url = self.url_var.get().strip()
@@ -354,6 +361,7 @@ class DedupApp(ctk.CTk):
         self.busy = True
         self.btn_run.configure(state="disabled")
         self.btn_export.configure(state="disabled")
+        self._close_compare()
         self.progress.set(0)
         self.status.set("正在查重…")
         threading.Thread(target=self._worker, args=(path,), daemon=True).start()
@@ -402,20 +410,25 @@ class DedupApp(ctk.CTk):
         self._refresh_table()
 
     def _refresh_table(self) -> None:
+        keep_key = self._current_pair_key()
         for item in self.tree.get_children():
             self.tree.delete(item)
         if not self.result:
+            self._visible = []
             self.lbl_hit.configure(text="命中 0 对")
             self.btn_export.configure(state="disabled")
+            self._close_compare()
             return
         th = float(self.threshold.get())
         rows = self.result.scored(th)
+        self._visible = rows
         qs = self.result.questions
         for seq, (pair, score) in enumerate(rows, start=1):
             a, b = qs[pair.i], qs[pair.j]
             self.tree.insert(
                 "",
                 "end",
+                iid=str(seq - 1),
                 values=(
                     seq,
                     f"{score:.2%}",
@@ -433,6 +446,8 @@ class DedupApp(ctk.CTk):
             )
         self.lbl_hit.configure(text=f"命中 {len(rows)} 对")
         self.btn_export.configure(state="normal" if rows else "disabled")
+        if self._compare_win_alive():
+            self._sync_compare_after_filter(keep_key)
 
     def _export(self) -> None:
         if not self.result:
@@ -466,7 +481,92 @@ class DedupApp(ctk.CTk):
             return
         messagebox.showinfo("已导出", dest)
 
+    def _on_tree_open(self, _event=None) -> str | None:
+        sel = self.tree.selection()
+        if not sel:
+            return "break"
+        try:
+            idx = int(sel[0])
+        except ValueError:
+            return "break"
+        self._show_compare(idx)
+        return "break"
+
+    def _current_pair_key(self) -> tuple[int, int] | None:
+        if self._compare_idx is None or not self._visible:
+            return None
+        if not (0 <= self._compare_idx < len(self._visible)):
+            return None
+        pair = self._visible[self._compare_idx][0]
+        return (pair.i, pair.j)
+
+    def _compare_win_alive(self) -> bool:
+        win = self._compare_win
+        return win is not None and bool(win.winfo_exists())
+
+    def _sync_compare_after_filter(self, keep_key: tuple[int, int] | None) -> None:
+        if not self._visible:
+            self._close_compare()
+            return
+        idx = 0
+        if keep_key is not None:
+            for i, (pair, _) in enumerate(self._visible):
+                if (pair.i, pair.j) == keep_key:
+                    idx = i
+                    break
+            else:
+                idx = min(self._compare_idx or 0, len(self._visible) - 1)
+        self._show_compare(idx, raise_window=False)
+
+    def _show_compare(self, idx: int, *, raise_window: bool = True) -> None:
+        if not self.result or not self._visible:
+            return
+        if not (0 <= idx < len(self._visible)):
+            return
+        self._compare_idx = idx
+        pair, score = self._visible[idx]
+        a = self.result.questions[pair.i]
+        b = self.result.questions[pair.j]
+        if not self._compare_win_alive():
+            self._compare_win = CompareDialog(
+                self,
+                on_prev=self._compare_prev,
+                on_next=self._compare_next,
+                on_close=self._on_compare_closed,
+            )
+        assert self._compare_win is not None
+        self._compare_win.render(
+            idx + 1, len(self._visible), score, a, b, raise_window=raise_window
+        )
+        iid = str(idx)
+        if self.tree.exists(iid):
+            self.tree.selection_set(iid)
+            self.tree.focus(iid)
+            self.tree.see(iid)
+
+    def _compare_prev(self) -> None:
+        if self._compare_idx is None or self._compare_idx <= 0:
+            return
+        self._show_compare(self._compare_idx - 1)
+
+    def _compare_next(self) -> None:
+        if self._compare_idx is None or self._compare_idx >= len(self._visible) - 1:
+            return
+        self._show_compare(self._compare_idx + 1)
+
+    def _on_compare_closed(self) -> None:
+        self._compare_win = None
+        self._compare_idx = None
+
+    def _close_compare(self) -> None:
+        win = self._compare_win
+        self._compare_win = None
+        self._compare_idx = None
+        if win is not None and win.winfo_exists():
+            win.destroy()
+
     def _on_close(self) -> None:
+        self._close_compare()
         self.destroy()
 
 

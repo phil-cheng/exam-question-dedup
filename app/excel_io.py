@@ -64,7 +64,7 @@ def _find_header(rows: list[list]) -> tuple[int, dict[str, int]]:
 
 
 def load_questions(path: str | Path) -> list[Question]:
-    """只读「正式题目」。空题干跳过；不读答案列。"""
+    """只读「正式题目」。空题干跳过。答案只读入供复核，不参与查重。"""
     path = Path(path)
     if not path.is_file():
         raise TemplateError("文件不存在。")
@@ -90,6 +90,7 @@ def load_questions(path: str | Path) -> list[Question]:
                 qtype=get("题型"),
                 stem=stem,
                 options=options,
+                answer=get("答案"),
             )
         )
     if len(questions) < 2:

@@ -13,6 +13,8 @@ class Question:
     qtype: str
     stem: str
     options: list[str] = field(default_factory=list)
+    # 仅供人工复核展示，绝不进入 search_text
+    answer: str = ""
 
     @property
     def search_text(self) -> str:
@@ -32,6 +34,16 @@ class Question:
             if text:
                 bits.append(f"{letter}.{text}")
         return " ".join(bits)
+
+    @property
+    def option_lines(self) -> str:
+        # 复核窗分行展示，空选项不占行
+        bits = []
+        for letter, opt in zip("ABCDEF", self.options):
+            text = (opt or "").strip()
+            if text:
+                bits.append(f"{letter}. {text}")
+        return "\n".join(bits)
 
 
 @dataclass
