@@ -9,13 +9,20 @@ import tkinter as tk
 import customtkinter as ctk
 
 from app.models import Question
+from app.textdiff import EMPTY, field_display, option_display
 
-_EMPTY = "（空）"
+_LABEL_FG = ("gray10", "gray90")
+_DIFF_FG = "#C0392B"
+_DIFF_TAG = "diff"
 
 
 def _or_empty(text: str) -> str:
     text = (text or "").strip()
-    return text if text else _EMPTY
+    return text if text else EMPTY
+
+
+def _inner(box: ctk.CTkTextbox):
+    return getattr(box, "_textbox", box)
 
 
 def _set_box(box: ctk.CTkTextbox, text: str) -> None:
@@ -23,6 +30,23 @@ def _set_box(box: ctk.CTkTextbox, text: str) -> None:
     box.delete("1.0", "end")
     box.insert("1.0", _or_empty(text))
     box.see("1.0")
+
+
+def _set_box_diff(box: ctk.CTkTextbox, text: str, spans: list[tuple[int, int]]) -> None:
+    box.delete("1.0", "end")
+    box.insert("1.0", text if text else EMPTY)
+    inner = _inner(box)
+    inner.tag_configure(_DIFF_TAG, foreground=_DIFF_FG)
+    inner.tag_remove(_DIFF_TAG, "1.0", "end")
+    for start, end in spans:
+        if start < end:
+            inner.tag_add(_DIFF_TAG, f"1.0+{start}c", f"1.0+{end}c")
+    box.see("1.0")
+
+
+def _set_label_diff(label: ctk.CTkLabel, left: str, right: str) -> None:
+    text, spans = field_display(left, right)
+    label.configure(text=text, text_color=_DIFF_FG if spans else _LABEL_FG)
 
 
 class CompareDialog(ctk.CTkToplevel):
@@ -77,7 +101,7 @@ class CompareDialog(ctk.CTkToplevel):
 
         foot = ctk.CTkLabel(
             self,
-            text="Esc 关闭    ← → 上一对 / 下一对",
+            text="Esc 关闭    ← → 上一对 / 下一对    右侧红色为与左侧不同的文字",
             text_color=("gray40", "gray70"),
             anchor="w",
         )
@@ -158,14 +182,16 @@ class CompareDialog(ctk.CTkToplevel):
         )
         self.lbl_ha.configure(text=f"A · {a.code}")
         self.lbl_hb.configure(text=f"B · {b.code}")
-        self.lbl_type_a.configure(text=_or_empty(a.qtype))
-        self.lbl_type_b.configure(text=_or_empty(b.qtype))
+        self.lbl_type_a.configure(text=_or_empty(a.qtype), text_color=_LABEL_FG)
+        _set_label_diff(self.lbl_type_b, a.qtype, b.qtype)
         _set_box(self.box_stem_a, a.stem)
-        _set_box(self.box_stem_b, b.stem)
+        stem_text, stem_red = field_display(a.stem, b.stem)
+        _set_box_diff(self.box_stem_b, stem_text, stem_red)
         _set_box(self.box_opt_a, a.option_lines)
-        _set_box(self.box_opt_b, b.option_lines)
-        self.lbl_ans_a.configure(text=_or_empty(a.answer))
-        self.lbl_ans_b.configure(text=_or_empty(b.answer))
+        opt_text, opt_red = option_display(a.options, b.options)
+        _set_box_diff(self.box_opt_b, opt_text, opt_red)
+        self.lbl_ans_a.configure(text=_or_empty(a.answer), text_color=_LABEL_FG)
+        _set_label_diff(self.lbl_ans_b, a.answer, b.answer)
         self.btn_prev.configure(state="normal" if seq > 1 else "disabled")
         self.btn_next.configure(state="normal" if seq < total else "disabled")
         if raise_window:
