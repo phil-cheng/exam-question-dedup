@@ -1,4 +1,12 @@
-"""一次计算：读表 → BM25 → 可选向量 → 并集候选 → 存原始分。"""
+"""
+查重主流程（只算一次，滑条事后过滤）：
+
+    读表 → BM25 Top50 →（可选）远程向量 + 余弦 Top50
+         → 两路并集做成无向题对 → 每对存原始余弦 / BM25
+         → 界面按 score() 卡阈值
+
+向量失败不中断，回退纯 BM25。
+"""
 
 from __future__ import annotations
 
@@ -26,6 +34,7 @@ class RunResult:
     extra: dict = field(default_factory=dict)
 
     def scored(self, threshold: float) -> list[tuple[PairResult, float]]:
+        # 改阈值只走这里，不再分词 / 打向量
         out: list[tuple[PairResult, float]] = []
         for p in self.pairs:
             s = p.score(self.alpha, self.has_vectors)
@@ -36,6 +45,7 @@ class RunResult:
 
 
 def _pair_key(i: int, j: int) -> tuple[int, int]:
+    # 无向：同一对只存一次
     return (i, j) if i < j else (j, i)
 
 
@@ -46,7 +56,11 @@ def _collect_pairs(
     cos_idx: np.ndarray | None,
     vectors: np.ndarray | None,
 ) -> list[PairResult]:
-    """无向题对：并集召回；有向量时对每对补算精确余弦。"""
+    """
+    候选 = BM25 TopK ∪ 余弦 TopK（无向，A-B 与 B-A 只留一条）。
+    只被一路捞到的也留下：改写题靠向量，改两词靠 BM25。
+    有向量时对并集里每一对重算精确余弦，避免「只在 BM25 里的对」没有语义分。
+    """
     bm25_map: dict[tuple[int, int], float] = {}
     keys: set[tuple[int, int]] = set()
 
@@ -57,6 +71,7 @@ def _collect_pairs(
                 continue
             key = _pair_key(i, j)
             keys.add(key)
+            # 两个方向各有一个归一化分，取较大的，避免「A 看 B 很像、B 看 A 一般」
             val = float(bm25_norm[i, col])
             if val > bm25_map.get(key, 0.0):
                 bm25_map[key] = val
@@ -85,6 +100,7 @@ def _collect_pairs(
                 i=i,
                 j=j,
                 cosine=cosine,
+                # 只被余弦捞到、BM25 未进 TopK：词面分记 0，综合分 = α·余弦
                 bm25_norm=bm25_map.get((i, j), 0.0),
             )
         )
@@ -112,6 +128,7 @@ def run_dedup(
     fallback = ""
     cos_idx = None
     vectors = None
+    # 没配服务或请求失败：has_vectors=False，后面 score() 自动只用 BM25
     if cfg.embed_enabled:
         prog("正在请求 embedding", 0, n)
         try:

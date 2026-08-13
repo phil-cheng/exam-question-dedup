@@ -9,10 +9,12 @@ _CJK = re.compile(r"[\u4e00-\u9fff]+")
 
 
 def tokenize(text: str) -> list[str]:
+    """近重复用字 n-gram，比 jieba 稳：改一两个字仍共享大量 2/3-gram。"""
     if not text:
         return []
     text = text.lower()
     tokens: list[str] = []
+    # Python、O(n) 这类整词单独保留
     for m in _LATIN.finditer(text):
         tokens.append(m.group(0))
     for m in _CJK.finditer(text):

@@ -97,7 +97,7 @@ def embed_texts(
     vectors: list[list[float]] = []
 
     with httpx.Client(timeout=timeout) as client:
-        # 第一批同时探测协议，后续沿用
+        # 先打 OpenAI 兼容（vLLM / Ollama /v1），不通再试 Ollama /api/embed；后面批次跟第一批
         first = texts[:batch_size]
         try:
             payload = _post_json(
