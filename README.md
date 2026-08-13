@@ -69,6 +69,8 @@ python main.py --cli test.xls --threshold 0.82
 
 - [需求说明](docs/需求.md)
 - [为何混合 embedding 与 BM25](docs/为何混合embedding与BM25.md)
+- [为何不整段清洗检索文本](docs/为何不整段清洗检索文本.md)
+- [如何选择 embedding 模型](docs/如何选择embedding模型.md)
 - [自研 vs seekdb](docs/方案对比-自研与seekdb.md)
 
 ## 再打包
