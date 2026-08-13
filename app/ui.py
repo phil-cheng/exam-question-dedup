@@ -16,6 +16,12 @@ from app.excel_io import TemplateError, export_pairs
 from app.pipeline import RunResult, run_dedup
 
 DEFAULT_THRESHOLD = 0.82
+# 下载模板 / 导出：同一套次要色，表示输入输出
+_IO_BTN = {
+    "fg_color": ("gray70", "gray40"),
+    "hover_color": ("gray60", "gray35"),
+    "text_color": ("gray15", "gray90"),
+}
 
 
 def _short(text: str, limit: int = 36) -> str:
@@ -54,32 +60,14 @@ class DedupApp(ctk.CTk):
         step_font = ctk.CTkFont(size=13)
         for line in (
             "1、下载模板并按格式填写试题。",
-            "2、选择 Excel 进行查重（系统支持语义 + 文本混合查重，使用语义时需配置下方的向量模型参数）。",
+            "2、使用语义时先配置向量模型，再选择 Excel 进行查重（支持文本 + 语义混合）。",
             "3、通过调节相似度滑轨得出理想的分界线。",
         ):
             ctk.CTkLabel(
                 steps, text=line, font=step_font, text_color=("gray25", "gray75"), anchor="w"
             ).pack(anchor="w", pady=1)
 
-        file_row = ctk.CTkFrame(root)
-        file_row.pack(fill="x", **pad)
-        ctk.CTkButton(
-            file_row,
-            text="下载模板",
-            width=110,
-            command=self._download_template,
-            fg_color=("gray70", "gray40"),
-            hover_color=("gray60", "gray35"),
-            text_color=("gray15", "gray90"),
-        ).pack(side="left", padx=8, pady=10)
-        ctk.CTkButton(file_row, text="选择 Excel", width=110, command=self._pick_file).pack(
-            side="left", padx=(0, 8), pady=10
-        )
-        ctk.CTkEntry(file_row, textvariable=self.excel_path).pack(
-            side="left", fill="x", expand=True, padx=(0, 8), pady=10
-        )
-
-        # 地址 / 模型 / Key 同一色块，视觉上是一组配置
+        # 向量配置在上，选文件紧挨开始按钮
         emb = ctk.CTkFrame(root)
         emb.pack(fill="x", **pad)
 
@@ -108,13 +96,36 @@ class DedupApp(ctk.CTk):
         ).pack(side="left", padx=(6, 12))
         ctk.CTkButton(mk_row, text="保存配置", width=90, command=self._save_cfg).pack(side="left")
 
+        file_row = ctk.CTkFrame(root)
+        file_row.pack(fill="x", **pad)
+        ctk.CTkButton(
+            file_row,
+            text="下载模板",
+            width=110,
+            command=self._download_template,
+            **_IO_BTN,
+        ).pack(side="left", padx=8, pady=10)
+        ctk.CTkButton(file_row, text="选择 Excel", width=110, command=self._pick_file).pack(
+            side="left", padx=(0, 8), pady=10
+        )
+        ctk.CTkEntry(file_row, textvariable=self.excel_path).pack(
+            side="left", fill="x", expand=True, padx=(0, 8), pady=10
+        )
+
         # 查重动作和阈值过滤同一色块
         action = ctk.CTkFrame(root)
         action.pack(fill="x", **pad)
 
         run_row = ctk.CTkFrame(action, fg_color="transparent")
         run_row.pack(fill="x", padx=8, pady=(10, 4))
-        self.btn_run = ctk.CTkButton(run_row, text="开始查重", width=120, command=self._start)
+        self.btn_run = ctk.CTkButton(
+            run_row,
+            text="开始查重",
+            width=120,
+            command=self._start,
+            fg_color=("#2FA572", "#2FA572"),
+            hover_color=("#258c60", "#258c60"),
+        )
         self.btn_run.pack(side="left")
         self.progress = ctk.CTkProgressBar(run_row, width=280)
         self.progress.pack(side="left", padx=12)
@@ -141,39 +152,71 @@ class DedupApp(ctk.CTk):
         self.lbl_hit = ctk.CTkLabel(filt, text="命中 0 对")
         self.lbl_hit.pack(side="left", padx=8)
         self.btn_export = ctk.CTkButton(
-            filt, text="导出当前结果", width=120, command=self._export, state="disabled"
+            filt,
+            text="导出当前结果",
+            width=120,
+            command=self._export,
+            state="disabled",
+            **_IO_BTN,
         )
         self.btn_export.pack(side="right")
 
         table = ctk.CTkFrame(root)
         table.pack(fill="both", expand=True, padx=16, pady=(4, 8))
-        cols = ("score", "code_a", "code_b", "type_a", "type_b", "stem_a", "stem_b")
+        cols = (
+            "seq",
+            "score",
+            "row_a",
+            "row_b",
+            "code_a",
+            "code_b",
+            "type_a",
+            "type_b",
+            "stem_a",
+            "stem_b",
+            "opt_a",
+            "opt_b",
+        )
         self.tree = ttk.Treeview(table, columns=cols, show="headings", height=16)
         headings = {
+            "seq": "序号",
             "score": "相似度",
+            "row_a": "原表行A",
+            "row_b": "原表行B",
             "code_a": "编号A",
             "code_b": "编号B",
             "type_a": "题型A",
             "type_b": "题型B",
             "stem_a": "题干A",
             "stem_b": "题干B",
+            "opt_a": "选项A",
+            "opt_b": "选项B",
         }
         widths = {
-            "score": 80,
-            "code_a": 90,
-            "code_b": 90,
-            "type_a": 80,
-            "type_b": 80,
-            "stem_a": 280,
-            "stem_b": 280,
+            "seq": 50,
+            "score": 72,
+            "row_a": 72,
+            "row_b": 72,
+            "code_a": 80,
+            "code_b": 80,
+            "type_a": 72,
+            "type_b": 72,
+            "stem_a": 300,
+            "stem_b": 300,
+            "opt_a": 180,
+            "opt_b": 180,
         }
         for key, title in headings.items():
             self.tree.heading(key, text=title)
-            self.tree.column(key, width=widths[key], anchor="w")
-        scroll = ttk.Scrollbar(table, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscrollcommand=scroll.set)
-        self.tree.pack(side="left", fill="both", expand=True, padx=(8, 0), pady=8)
-        scroll.pack(side="right", fill="y", pady=8, padx=(0, 8))
+            self.tree.column(key, width=widths[key], minwidth=widths[key], stretch=False, anchor="w")
+        yscroll = ttk.Scrollbar(table, orient="vertical", command=self.tree.yview)
+        xscroll = ttk.Scrollbar(table, orient="horizontal", command=self.tree.xview)
+        self.tree.configure(yscrollcommand=yscroll.set, xscrollcommand=xscroll.set)
+        table.grid_rowconfigure(0, weight=1)
+        table.grid_columnconfigure(0, weight=1)
+        self.tree.grid(row=0, column=0, sticky="nsew", padx=(8, 0), pady=(8, 0))
+        yscroll.grid(row=0, column=1, sticky="ns", pady=(8, 0), padx=(0, 8))
+        xscroll.grid(row=1, column=0, sticky="ew", padx=(8, 0), pady=(0, 8))
 
         style = ttk.Style()
         try:
@@ -297,19 +340,24 @@ class DedupApp(ctk.CTk):
         th = float(self.threshold.get())
         rows = self.result.scored(th)
         qs = self.result.questions
-        for pair, score in rows:
+        for seq, (pair, score) in enumerate(rows, start=1):
             a, b = qs[pair.i], qs[pair.j]
             self.tree.insert(
                 "",
                 "end",
                 values=(
+                    seq,
                     f"{score:.2%}",
+                    a.excel_row,
+                    b.excel_row,
                     a.code,
                     b.code,
                     a.qtype,
                     b.qtype,
-                    _short(a.stem),
-                    _short(b.stem),
+                    _short(a.stem, 40),
+                    _short(b.stem, 40),
+                    _short(a.option_summary, 48),
+                    _short(b.option_summary, 48),
                 ),
             )
         self.lbl_hit.configure(text=f"命中 {len(rows)} 对")

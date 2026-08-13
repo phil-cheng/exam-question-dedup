@@ -109,7 +109,10 @@ def export_pairs(
     ws.title = "查重结果"
     ws.append(
         [
+            "序号",
             "相似度",
+            "原表行A",
+            "原表行B",
             "编号A",
             "编号B",
             "题型A",
@@ -118,15 +121,16 @@ def export_pairs(
             "题干B",
             "选项A",
             "选项B",
-            "原表行A",
-            "原表行B",
         ]
     )
-    for pair, score in zip(pairs, scores):
+    for seq, (pair, score) in enumerate(zip(pairs, scores), start=1):
         a, b = questions[pair.i], questions[pair.j]
         ws.append(
             [
+                seq,
                 round(float(score), 4),
+                a.excel_row,
+                b.excel_row,
                 a.code,
                 b.code,
                 a.qtype,
@@ -135,8 +139,6 @@ def export_pairs(
                 b.stem,
                 a.option_summary,
                 b.option_summary,
-                a.excel_row,
-                b.excel_row,
             ]
         )
     dest = Path(dest)

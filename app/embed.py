@@ -71,9 +71,9 @@ def _post_json(client: httpx.Client, url: str, body: dict, api_key: str) -> Any:
         return resp.json()
     except httpx.HTTPStatusError as exc:
         text = exc.response.text[:300]
-        raise EmbedError(f"embedding 接口 HTTP {exc.response.status_code}：{text}") from exc
+        raise EmbedError(f"向量服务 HTTP {exc.response.status_code}：{text}") from exc
     except httpx.RequestError as exc:
-        raise EmbedError(f"无法连接 embedding 服务：{exc}") from exc
+        raise EmbedError(f"无法连接向量服务：{exc}") from exc
 
 
 def embed_texts(
@@ -88,7 +88,7 @@ def embed_texts(
         raise EmbedError("没有可向量化的文本。")
     base = _normalize_base(base_url)
     if not base or not model.strip():
-        raise EmbedError("未配置 embedding 地址或模型名。")
+        raise EmbedError("未配置向量服务地址或模型名。")
 
     timeout = httpx.Timeout(connect=10.0, read=180.0, write=30.0, pool=10.0)
     openai_url = _openai_url(base)
@@ -118,7 +118,7 @@ def embed_texts(
             use_ollama = True
 
         if on_progress:
-            on_progress(len(vectors), len(texts), "正在请求 embedding")
+            on_progress(len(vectors), len(texts), "正在调用向量服务")
 
         start = batch_size
         while start < len(texts):
@@ -135,7 +135,7 @@ def embed_texts(
                 vectors.extend(_parse_openai(payload))
             start += len(chunk)
             if on_progress:
-                on_progress(min(start, len(texts)), len(texts), "正在请求 embedding")
+                on_progress(min(start, len(texts)), len(texts), "正在调用向量服务")
 
     if len(vectors) != len(texts):
         raise EmbedError(f"返回向量数 {len(vectors)} 与试题数 {len(texts)} 不一致。")

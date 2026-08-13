@@ -130,7 +130,7 @@ def run_dedup(
     vectors = None
     # 没配服务或请求失败：has_vectors=False，后面 score() 自动只用 BM25
     if cfg.embed_enabled:
-        prog("正在请求 embedding", 0, n)
+        prog("正在调用向量服务", 0, n)
         try:
             vectors = embed_texts(
                 texts,
@@ -139,7 +139,7 @@ def run_dedup(
                 cfg.embed_api_key,
                 on_progress=lambda c, t, m: prog(m, c, t),
             )
-            prog("正在计算余弦", n, n)
+            prog("正在计算语义相似度", n, n)
             cos_idx, _ = cosine_neighbors(vectors, k=min(TOP_K, n - 1))
             has_vectors = True
         except EmbedError as exc:
