@@ -63,6 +63,7 @@ class DedupApp(ctk.CTk):
             "1、下载模板并按格式填写试题。",
             "2、使用语义比较时先配置向量模型，再选择 Excel 进行查重（支持文本 + 语义混合）。",
             "3、查重结束后，通过调节相似度滑轨得出理想的分界线。",
+            "4、备注：系统通过题干 + 非空选项进行比较。",
         ):
             ctk.CTkLabel(
                 steps, text=line, font=step_font, text_color=("gray25", "gray75"), anchor="w"
@@ -172,8 +173,6 @@ class DedupApp(ctk.CTk):
         cols = (
             "seq",
             "score",
-            "row_a",
-            "row_b",
             "code_a",
             "code_b",
             "type_a",
@@ -182,13 +181,13 @@ class DedupApp(ctk.CTk):
             "stem_b",
             "opt_a",
             "opt_b",
+            "row_a",
+            "row_b",
         )
         self.tree = ttk.Treeview(table, columns=cols, show="headings", height=16)
         headings = {
             "seq": "序号",
             "score": "相似度",
-            "row_a": "原表行A",
-            "row_b": "原表行B",
             "code_a": "编号A",
             "code_b": "编号B",
             "type_a": "题型A",
@@ -197,12 +196,12 @@ class DedupApp(ctk.CTk):
             "stem_b": "题干B",
             "opt_a": "选项A",
             "opt_b": "选项B",
+            "row_a": "原表行A",
+            "row_b": "原表行B",
         }
         widths = {
             "seq": 50,
             "score": 72,
-            "row_a": 72,
-            "row_b": 72,
             "code_a": 80,
             "code_b": 80,
             "type_a": 72,
@@ -211,6 +210,8 @@ class DedupApp(ctk.CTk):
             "stem_b": 300,
             "opt_a": 180,
             "opt_b": 180,
+            "row_a": 72,
+            "row_b": 72,
         }
         for key, title in headings.items():
             self.tree.heading(key, text=title)
@@ -418,8 +419,6 @@ class DedupApp(ctk.CTk):
                 values=(
                     seq,
                     f"{score:.2%}",
-                    a.excel_row,
-                    b.excel_row,
                     a.code,
                     b.code,
                     a.qtype,
@@ -428,6 +427,8 @@ class DedupApp(ctk.CTk):
                     _short(b.stem, 40),
                     _short(a.option_summary, 48),
                     _short(b.option_summary, 48),
+                    a.excel_row,
+                    b.excel_row,
                 ),
             )
         self.lbl_hit.configure(text=f"命中 {len(rows)} 对")
