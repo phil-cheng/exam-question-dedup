@@ -65,7 +65,7 @@ Ollama 官方标签：
 
 ## 4. 实测对比（2026-08，66 题特征集）
 
-数据集 `data-validation/test_dataset.xlsx`：含「换说法型（词面不重叠、考点同）」「只差一字/数字」「模板撞车」「符号公式」等形态，人工标注 9 对真重复。三模型同为 Qwen3-Embedding（纯文本），硅基流动在线接口，同一批题重跑 `data-validation/ab_test_recall.py`。
+数据集 `data-validation/test_dataset.xlsx`：含「换说法型（词面不重叠、考点同）」「只差一字/数字」「模板撞车」「符号公式」等形态，人工标注 9 对真重复。三模型同为 Qwen3-Embedding（纯文本），硅基流动在线接口。全量分数已落盘 `data-validation/scores.csv`（含标注列），换模型时用 `data-validation/export_scores.py` 重新生成即可。
 
 | 模型 | 维度 | 换说法真重复最低 cos | 0.75 阈值命中 | 0.75 阈值误报 | 真重复排名 |
 |---|---|---|---|---|---|
