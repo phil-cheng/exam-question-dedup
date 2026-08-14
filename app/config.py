@@ -31,17 +31,10 @@ class AppConfig:
     embed_base_url: str = ""
     embed_model: str = ""
     embed_api_key: str = ""
-    # 有向量时：s = semantic_weight * 余弦 + (1-w) * BM25归一化
-    semantic_weight: float = 0.7
 
     @property
     def embed_enabled(self) -> bool:
         return bool(self.embed_base_url.strip() and self.embed_model.strip())
-
-    @property
-    def alpha(self) -> float:
-        w = float(self.semantic_weight)
-        return min(1.0, max(0.0, w))
 
 
 def config_path() -> Path:
@@ -62,10 +55,6 @@ def load_config() -> AppConfig:
     cfg.embed_base_url = str(raw.get("embed_base_url", "") or "")
     cfg.embed_model = str(raw.get("embed_model", "") or "")
     cfg.embed_api_key = str(raw.get("embed_api_key", "") or "")
-    try:
-        cfg.semantic_weight = float(raw.get("semantic_weight", 0.7))
-    except (TypeError, ValueError):
-        cfg.semantic_weight = 0.7
     return cfg
 
 

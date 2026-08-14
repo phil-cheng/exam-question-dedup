@@ -53,8 +53,9 @@ class PairResult:
     cosine: float | None
     bm25_norm: float
 
-    def score(self, alpha: float, has_vectors: bool) -> float:
-        """滑条卡的分。有向量：α·余弦 + (1-α)·BM25；无向量：只用 BM25。α 默认 0.7。"""
+    def score(self, has_vectors: bool) -> float:
+        """滑条卡的分。有向量：纯余弦；无向量：只用 BM25 归一化分（降级）。
+        实测（66 题特征集）掺 BM25 进判决对任何模型都是减分，故取消混合。"""
         if has_vectors and self.cosine is not None:
-            return alpha * self.cosine + (1.0 - alpha) * self.bm25_norm
+            return self.cosine
         return self.bm25_norm

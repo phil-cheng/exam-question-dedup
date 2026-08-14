@@ -17,7 +17,7 @@ from app.embed import EmbedError, probe_embed
 from app.excel_io import TemplateError, export_pairs
 from app.pipeline import RunResult, run_dedup
 
-DEFAULT_THRESHOLD = 0.82
+DEFAULT_THRESHOLD = 0.75  # 按 Qwen3-Embedding-8B 实测校准（66 题特征集 9/9 命中）；0.6b 用户建议降到 0.60~0.65
 # 下载模板 / 导出：同一套次要色，表示输入输出
 _IO_BTN = {
     "fg_color": ("gray70", "gray40"),
@@ -66,7 +66,7 @@ class DedupApp(ctk.CTk):
         step_font = ctk.CTkFont(size=13)
         for line in (
             "1、下载模板并按格式填写试题。",
-            "2、使用语义比较时先配置向量模型，再选择 Excel 进行查重（支持文本 + 语义混合）。",
+            "2、先配置向量模型（推荐 Qwen3-Embedding-8B）再做语义查重；未配置则自动用文本（BM25）查重。",
             "3、查重结束后调节相似度滑轨；双击或回车打开左右比对，可用上一对 / 下一对连续复核。",
             "4、备注：系统通过题干 + 非空选项进行比较。",
         ):
@@ -149,7 +149,7 @@ class DedupApp(ctk.CTk):
         filt = ctk.CTkFrame(action, fg_color="transparent")
         filt.pack(fill="x", padx=8, pady=(4, 10))
         ctk.CTkLabel(filt, text="相似度 ≥").pack(side="left")
-        self.lbl_th = ctk.CTkLabel(filt, text="82%", width=48)
+        self.lbl_th = ctk.CTkLabel(filt, text="75%", width=48)
         self.lbl_th.pack(side="left")
         self.slider = ctk.CTkSlider(
             filt,
@@ -401,7 +401,7 @@ class DedupApp(ctk.CTk):
         self.btn_run.configure(state="normal")
         self.progress.set(1)
         self.result = result
-        mode = "文本 + 语义" if result.has_vectors else "仅文本"
+        mode = "语义（余弦）" if result.has_vectors else "仅文本（BM25）"
         extra = ""
         if result.fallback_reason:
             extra = f"（向量失败已回退：{result.fallback_reason}）"

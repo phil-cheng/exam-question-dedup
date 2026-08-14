@@ -6,3 +6,4 @@ build/
 dist/
 *.spec
 config.json
+config-local-qwen0.6.json

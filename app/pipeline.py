@@ -30,14 +30,13 @@ class RunResult:
     pairs: list[PairResult]
     has_vectors: bool
     fallback_reason: str = ""
-    alpha: float = 0.7
     extra: dict = field(default_factory=dict)
 
     def scored(self, threshold: float) -> list[tuple[PairResult, float]]:
         # 改阈值只走这里，不再分词 / 打向量
         out: list[tuple[PairResult, float]] = []
         for p in self.pairs:
-            s = p.score(self.alpha, self.has_vectors)
+            s = p.score(self.has_vectors)
             if s + 1e-12 >= threshold:
                 out.append((p, s))
         out.sort(key=lambda x: x[1], reverse=True)
@@ -100,7 +99,7 @@ def _collect_pairs(
                 i=i,
                 j=j,
                 cosine=cosine,
-                # 只被余弦捞到、BM25 未进 TopK：词面分记 0，综合分 = α·余弦
+                # 只被余弦捞到、BM25 未进 TopK：词面分记 0（判决走余弦，用不到）
                 bm25_norm=bm25_map.get((i, j), 0.0),
             )
         )
@@ -147,7 +146,7 @@ def run_dedup(
             vectors = None
             has_vectors = False
 
-    prog("正在融合候选")
+    prog("正在收集候选对")
     pairs = _collect_pairs(n, bm25_idx, bm25_norm, cos_idx, vectors)
     prog("完成", n, n)
     return RunResult(
@@ -155,5 +154,4 @@ def run_dedup(
         pairs=pairs,
         has_vectors=has_vectors,
         fallback_reason=fallback,
-        alpha=cfg.alpha,
     )
