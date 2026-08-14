@@ -11,7 +11,7 @@
 1. 打开 `dist/QuestionDedup.exe`（文件名用英文，避免 Windows 打包乱码；窗口标题仍是中文）
 2. 没有模板时点「下载模板」，另存内置的 `template.xls`
 3. 选择填好的、含工作表 **「正式题目」** 的 `.xls` / `.xlsx`
-4. （可选）填写向量服务地址和模型名，例如 `http://127.0.0.1:11434/v1` + `bge-m3`
+4. （可选）填写向量服务地址和模型名，例如 `http://127.0.0.1:11434/v1` + `qwen3-embedding:8b`
 5. 点「开始查重」
 6. 拖动「相似度」滑条过滤，导出当前题对为 xlsx
 
@@ -28,7 +28,7 @@ python main.py
 
 ```powershell
 python main.py --cli test.xls
-python main.py --cli test.xls --threshold 0.82
+python main.py --cli test.xls --threshold 0.75
 ```
 
 ## Excel 模板
@@ -47,23 +47,22 @@ python main.py --cli test.xls --threshold 0.82
 | `embed_base_url` | OpenAI 兼容地址：本地 Ollama/vLLM，或硅基流动等在线服务 | 界面可填 |
 | `embed_model` | 模型名 | 界面可填 |
 | `embed_api_key` | 在线服务必填；本地 Ollama 可空。界面密文显示 | 界面可填 |
-| `semantic_weight` | 有向量时综合分里语义占比，默认 `0.7`（其余 0.3 给 BM25） | **不暴露**，改文件即可 |
 
 开发时配置写在项目根；打包后写在 exe 同一目录。
 
-综合分：
+判定分（滑条卡它，改阈值不重算）：
 
-- 有向量：`s = 0.7 × 余弦 + 0.3 × BM25归一化`
+- 有向量：`s = 余弦`（实测掺 BM25 对任何模型都是减分，混合已取消）
 - 无向量：`s = BM25(相对自己)`
 
-滑条只卡 `s`，改阈值不重算。`semantic_weight` 不是滑条。
+模型选型见 [如何选择 embedding 模型](docs/如何选择embedding模型.md)：质量优先 `qwen3-embedding:8b`（默认阈值 0.75 即按它校准），图快用 `0.6b`（阈值降到 0.60~0.65）。
 
 ## 检索在做什么
 
 1. 字 2/3-gram + BM25，每题 Top50  
 2. 若配置了 embedding，批量打向量，精确余弦再取 Top50  
 3. 两路并集作为候选，写出每对的原始分  
-4. 滑条按综合分过滤并导出题对  
+4. 滑条按判定分（有向量=余弦，无向量=BM25 相对分）过滤并导出题对  
 
 设计说明见 `docs/`：
 
@@ -84,9 +83,10 @@ powershell -ExecutionPolicy Bypass -File scripts/build_exe.ps1
 ## 目录
 
 ```
-app/                 读表、分词、BM25、远程向量、融合、界面
+app/                 读表、分词、BM25、远程向量、候选并集与判定、界面
 docs/                需求与方案讨论
 scripts/build_exe.ps1
+data-validation/     66 题特征集、全量分数 scores.csv 与导出脚本
 dist/QuestionDedup.exe
 test.xls             样例题
 ```
