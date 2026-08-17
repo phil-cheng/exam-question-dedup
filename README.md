@@ -87,7 +87,8 @@ powershell -ExecutionPolicy Bypass -File scripts/build_exe.ps1
 app/                 读表、远程向量/BM25 托底、余弦判定、界面
 docs/                需求与方案讨论
 scripts/build_exe.ps1
-data-validation/     66 题特征集、全量分数 scores.csv 与导出脚本
+data-validation/        66 题特征集、全量分数 scores.csv 与导出脚本
+data-validation/stress/ 1000 题压测脚本与数据
 dist/QuestionDedup.exe
 test.xls             样例题
 ```

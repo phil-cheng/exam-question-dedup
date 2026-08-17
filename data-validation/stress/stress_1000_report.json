@@ -1,0 +1,147 @@
+[
+  {
+    "name": "BM25 托底",
+    "ok": true,
+    "error": "",
+    "n_questions": 1000,
+    "n_pairs": 34407,
+    "hits_075": 7552,
+    "hits_060": 9432,
+    "planted_total": 80,
+    "planted_hit_075": {
+      "punct": {
+        "total": 26,
+        "hit": 26
+      },
+      "option": {
+        "total": 14,
+        "hit": 14
+      },
+      "paraphrase": {
+        "total": 20,
+        "hit": 2
+      },
+      "number": {
+        "total": 20,
+        "hit": 20
+      },
+      "all": {
+        "total": 80,
+        "hit": 62
+      }
+    },
+    "planted_hit_060": {
+      "punct": {
+        "total": 26,
+        "hit": 26
+      },
+      "option": {
+        "total": 14,
+        "hit": 14
+      },
+      "paraphrase": {
+        "total": 20,
+        "hit": 5
+      },
+      "number": {
+        "total": 20,
+        "hit": 20
+      },
+      "all": {
+        "total": 80,
+        "hit": 65
+      }
+    },
+    "phases": [
+      {
+        "name": "读 Excel",
+        "seconds": 0.12462280003819615,
+        "rss_mb_after": 61.23828125
+      },
+      {
+        "name": "BM25 分词+建索引+检索",
+        "seconds": 0.27255349996266887,
+        "rss_mb_after": 66.7734375
+      }
+    ],
+    "wall_s": 0.4381567000527866,
+    "cpu_s": 0.421875,
+    "peak_rss_mb": 71.46875,
+    "avg_cpu_pct": 91.2
+  },
+  {
+    "name": "语义余弦",
+    "ok": true,
+    "error": "",
+    "n_questions": 1000,
+    "n_pairs": 35433,
+    "hits_075": 9716,
+    "hits_060": 18908,
+    "planted_total": 80,
+    "planted_hit_075": {
+      "punct": {
+        "total": 26,
+        "hit": 26
+      },
+      "option": {
+        "total": 14,
+        "hit": 14
+      },
+      "paraphrase": {
+        "total": 20,
+        "hit": 20
+      },
+      "number": {
+        "total": 20,
+        "hit": 20
+      },
+      "all": {
+        "total": 80,
+        "hit": 80
+      }
+    },
+    "planted_hit_060": {
+      "punct": {
+        "total": 26,
+        "hit": 26
+      },
+      "option": {
+        "total": 14,
+        "hit": 14
+      },
+      "paraphrase": {
+        "total": 20,
+        "hit": 20
+      },
+      "number": {
+        "total": 20,
+        "hit": 20
+      },
+      "all": {
+        "total": 80,
+        "hit": 80
+      }
+    },
+    "phases": [
+      {
+        "name": "读 Excel",
+        "seconds": 0.1235473999986425,
+        "rss_mb_after": 69.89453125
+      },
+      {
+        "name": "远程向量 Qwen/Qwen3-Embedding-8B  dim=4096",
+        "seconds": 86.02500839997083,
+        "rss_mb_after": 143.37890625
+      },
+      {
+        "name": "精确余弦 Top50",
+        "seconds": 0.09218440001131967,
+        "rss_mb_after": 150.12890625
+      }
+    ],
+    "wall_s": 86.2813076999737,
+    "cpu_s": 2.9375,
+    "peak_rss_mb": 252.5,
+    "avg_cpu_pct": 2.753731343283583
+  }
+]

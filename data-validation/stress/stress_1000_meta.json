@@ -1,0 +1,405 @@
+{
+  "n": 1000,
+  "planted": [
+    {
+      "a": "U0001",
+      "b": "P0001",
+      "kind": "punct"
+    },
+    {
+      "a": "U0002",
+      "b": "P0002",
+      "kind": "punct"
+    },
+    {
+      "a": "U0003",
+      "b": "P0003",
+      "kind": "punct"
+    },
+    {
+      "a": "U0004",
+      "b": "P0004",
+      "kind": "punct"
+    },
+    {
+      "a": "U0005",
+      "b": "P0005",
+      "kind": "punct"
+    },
+    {
+      "a": "U0006",
+      "b": "P0006",
+      "kind": "punct"
+    },
+    {
+      "a": "U0007",
+      "b": "P0007",
+      "kind": "punct"
+    },
+    {
+      "a": "U0008",
+      "b": "P0008",
+      "kind": "punct"
+    },
+    {
+      "a": "U0009",
+      "b": "P0009",
+      "kind": "punct"
+    },
+    {
+      "a": "U0010",
+      "b": "P0010",
+      "kind": "punct"
+    },
+    {
+      "a": "U0011",
+      "b": "P0011",
+      "kind": "punct"
+    },
+    {
+      "a": "U0012",
+      "b": "P0012",
+      "kind": "punct"
+    },
+    {
+      "a": "U0013",
+      "b": "P0013",
+      "kind": "punct"
+    },
+    {
+      "a": "U0014",
+      "b": "P0014",
+      "kind": "punct"
+    },
+    {
+      "a": "U0015",
+      "b": "P0015",
+      "kind": "punct"
+    },
+    {
+      "a": "U0016",
+      "b": "P0016",
+      "kind": "punct"
+    },
+    {
+      "a": "U0017",
+      "b": "P0017",
+      "kind": "punct"
+    },
+    {
+      "a": "U0018",
+      "b": "P0018",
+      "kind": "punct"
+    },
+    {
+      "a": "U0019",
+      "b": "P0019",
+      "kind": "punct"
+    },
+    {
+      "a": "U0020",
+      "b": "P0020",
+      "kind": "punct"
+    },
+    {
+      "a": "U0021",
+      "b": "P0021",
+      "kind": "option"
+    },
+    {
+      "a": "U0022",
+      "b": "P0022",
+      "kind": "punct"
+    },
+    {
+      "a": "U0023",
+      "b": "P0023",
+      "kind": "option"
+    },
+    {
+      "a": "U0024",
+      "b": "P0024",
+      "kind": "option"
+    },
+    {
+      "a": "U0025",
+      "b": "P0025",
+      "kind": "punct"
+    },
+    {
+      "a": "U0026",
+      "b": "P0026",
+      "kind": "option"
+    },
+    {
+      "a": "U0027",
+      "b": "P0027",
+      "kind": "option"
+    },
+    {
+      "a": "U0028",
+      "b": "P0028",
+      "kind": "punct"
+    },
+    {
+      "a": "U0029",
+      "b": "P0029",
+      "kind": "option"
+    },
+    {
+      "a": "U0030",
+      "b": "P0030",
+      "kind": "option"
+    },
+    {
+      "a": "U0031",
+      "b": "P0031",
+      "kind": "punct"
+    },
+    {
+      "a": "U0032",
+      "b": "P0032",
+      "kind": "option"
+    },
+    {
+      "a": "U0033",
+      "b": "P0033",
+      "kind": "option"
+    },
+    {
+      "a": "U0034",
+      "b": "P0034",
+      "kind": "punct"
+    },
+    {
+      "a": "U0035",
+      "b": "P0035",
+      "kind": "option"
+    },
+    {
+      "a": "U0036",
+      "b": "P0036",
+      "kind": "option"
+    },
+    {
+      "a": "U0037",
+      "b": "P0037",
+      "kind": "option"
+    },
+    {
+      "a": "U0038",
+      "b": "P0038",
+      "kind": "punct"
+    },
+    {
+      "a": "U0039",
+      "b": "P0039",
+      "kind": "option"
+    },
+    {
+      "a": "U0040",
+      "b": "P0040",
+      "kind": "option"
+    },
+    {
+      "a": "U0005",
+      "b": "P0041",
+      "kind": "paraphrase"
+    },
+    {
+      "a": "U0006",
+      "b": "P0042",
+      "kind": "paraphrase"
+    },
+    {
+      "a": "U0007",
+      "b": "P0043",
+      "kind": "paraphrase"
+    },
+    {
+      "a": "U0008",
+      "b": "P0044",
+      "kind": "paraphrase"
+    },
+    {
+      "a": "U0011",
+      "b": "P0045",
+      "kind": "paraphrase"
+    },
+    {
+      "a": "U0013",
+      "b": "P0046",
+      "kind": "paraphrase"
+    },
+    {
+      "a": "U0014",
+      "b": "P0047",
+      "kind": "paraphrase"
+    },
+    {
+      "a": "U0015",
+      "b": "P0048",
+      "kind": "paraphrase"
+    },
+    {
+      "a": "U0020",
+      "b": "P0049",
+      "kind": "paraphrase"
+    },
+    {
+      "a": "U0022",
+      "b": "P0050",
+      "kind": "paraphrase"
+    },
+    {
+      "a": "U0024",
+      "b": "P0051",
+      "kind": "paraphrase"
+    },
+    {
+      "a": "U0026",
+      "b": "P0052",
+      "kind": "paraphrase"
+    },
+    {
+      "a": "U0033",
+      "b": "P0053",
+      "kind": "paraphrase"
+    },
+    {
+      "a": "U0036",
+      "b": "P0054",
+      "kind": "paraphrase"
+    },
+    {
+      "a": "U0038",
+      "b": "P0055",
+      "kind": "paraphrase"
+    },
+    {
+      "a": "U0046",
+      "b": "P0056",
+      "kind": "paraphrase"
+    },
+    {
+      "a": "U0050",
+      "b": "P0057",
+      "kind": "paraphrase"
+    },
+    {
+      "a": "U0054",
+      "b": "P0058",
+      "kind": "paraphrase"
+    },
+    {
+      "a": "U0066",
+      "b": "P0059",
+      "kind": "paraphrase"
+    },
+    {
+      "a": "U0073",
+      "b": "P0060",
+      "kind": "paraphrase"
+    },
+    {
+      "a": "U0027",
+      "b": "P0061",
+      "kind": "number"
+    },
+    {
+      "a": "U0034",
+      "b": "P0062",
+      "kind": "number"
+    },
+    {
+      "a": "U0038",
+      "b": "P0063",
+      "kind": "number"
+    },
+    {
+      "a": "U0041",
+      "b": "P0064",
+      "kind": "number"
+    },
+    {
+      "a": "U0048",
+      "b": "P0065",
+      "kind": "number"
+    },
+    {
+      "a": "U0071",
+      "b": "P0066",
+      "kind": "number"
+    },
+    {
+      "a": "U0086",
+      "b": "P0067",
+      "kind": "number"
+    },
+    {
+      "a": "U0101",
+      "b": "P0068",
+      "kind": "number"
+    },
+    {
+      "a": "U0102",
+      "b": "P0069",
+      "kind": "number"
+    },
+    {
+      "a": "U0105",
+      "b": "P0070",
+      "kind": "number"
+    },
+    {
+      "a": "U0202",
+      "b": "P0071",
+      "kind": "number"
+    },
+    {
+      "a": "U0205",
+      "b": "P0072",
+      "kind": "number"
+    },
+    {
+      "a": "U0208",
+      "b": "P0073",
+      "kind": "number"
+    },
+    {
+      "a": "U0211",
+      "b": "P0074",
+      "kind": "number"
+    },
+    {
+      "a": "U0233",
+      "b": "P0075",
+      "kind": "number"
+    },
+    {
+      "a": "U0249",
+      "b": "P0076",
+      "kind": "number"
+    },
+    {
+      "a": "U0261",
+      "b": "P0077",
+      "kind": "number"
+    },
+    {
+      "a": "U0351",
+      "b": "P0078",
+      "kind": "number"
+    },
+    {
+      "a": "U0352",
+      "b": "P0079",
+      "kind": "number"
+    },
+    {
+      "a": "U0353",
+      "b": "P0080",
+      "kind": "number"
+    }
+  ]
+}
