@@ -5,8 +5,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from openpyxl import Workbook
+from openpyxl.styles import Font
 
 from app.models import PairResult, Question
+
+# 导出表中 B 侧列（编号B/题型B/题干B/选项B/原表行B）统一蓝字，与 A 侧黑字左右对照
+_B_SIDE_COLS = (4, 6, 8, 10, 12)  # 1-based 列号
+_BLUE_FONT = Font(color="0000FF")
 
 SHEET_NAME = "正式题目"
 REQUIRED_COLS = ("编号", "试题内容")
@@ -142,6 +147,12 @@ def export_pairs(
                 b.excel_row,
             ]
         )
+        row = ws.max_row
+        for col in _B_SIDE_COLS:
+            ws.cell(row=row, column=col).font = _BLUE_FONT
+    # 表头同步：B 侧列名也标蓝
+    for col in _B_SIDE_COLS:
+        ws.cell(row=1, column=col).font = _BLUE_FONT
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
     wb.save(dest)
