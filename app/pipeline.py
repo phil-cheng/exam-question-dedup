@@ -1,11 +1,11 @@
 """
 查重主流程（只算一次，滑条事后过滤）：
 
-    读表 → BM25 Top50 →（可选）远程向量 + 余弦 Top50
-         → 两路并集做成无向题对 → 每对存原始余弦 / BM25
-         → 界面按 score() 卡阈值
+    读表 → 尝试远程向量：成功 → 余弦 Top50 → 纯余弦判决
+                        失败/未配置 → BM25 Top50 → BM25 相对分判决（托底）
 
-向量失败不中断，回退纯 BM25。
+两条路径互不混合：实测掺 BM25 进判决是减分、并集召回是零贡献，
+依据见 docs/为何给余弦加BM25提升不了结果.md。
 """
 
 from __future__ import annotations
@@ -48,62 +48,21 @@ def _pair_key(i: int, j: int) -> tuple[int, int]:
     return (i, j) if i < j else (j, i)
 
 
-def _collect_pairs(
-    n: int,
-    bm25_idx: np.ndarray,
-    bm25_norm: np.ndarray,
-    cos_idx: np.ndarray | None,
-    vectors: np.ndarray | None,
-) -> list[PairResult]:
-    """
-    候选 = BM25 TopK ∪ 余弦 TopK（无向，A-B 与 B-A 只留一条）。
-    只被一路捞到的也留下：改写题靠向量，改两词靠 BM25。
-    有向量时对并集里每一对重算精确余弦，避免「只在 BM25 里的对」没有语义分。
-    """
-    bm25_map: dict[tuple[int, int], float] = {}
-    keys: set[tuple[int, int]] = set()
-
+def _topk_score_map(
+    n: int, idx: np.ndarray, scores: np.ndarray
+) -> dict[tuple[int, int], float]:
+    """单路 TopK 索引+分数 → {无向对: 分数}，双向取高分去重。"""
+    best: dict[tuple[int, int], float] = {}
     for i in range(n):
-        for col in range(bm25_idx.shape[1]):
-            j = int(bm25_idx[i, col])
+        for col in range(idx.shape[1]):
+            j = int(idx[i, col])
             if j < 0 or j == i:
                 continue
             key = _pair_key(i, j)
-            keys.add(key)
-            # 两个方向各有一个归一化分，取较大的，避免「A 看 B 很像、B 看 A 一般」
-            val = float(bm25_norm[i, col])
-            if val > bm25_map.get(key, 0.0):
-                bm25_map[key] = val
-
-    if cos_idx is not None:
-        for i in range(n):
-            for col in range(cos_idx.shape[1]):
-                j = int(cos_idx[i, col])
-                if j < 0 or j == i:
-                    continue
-                keys.add(_pair_key(i, j))
-
-    unit = None
-    if vectors is not None:
-        x = np.asarray(vectors, dtype=np.float32)
-        norms = np.maximum(np.linalg.norm(x, axis=1, keepdims=True), 1e-12)
-        unit = x / norms
-
-    pairs: list[PairResult] = []
-    for i, j in keys:
-        cosine = None
-        if unit is not None:
-            cosine = float(np.clip(unit[i] @ unit[j], 0.0, 1.0))
-        pairs.append(
-            PairResult(
-                i=i,
-                j=j,
-                cosine=cosine,
-                # 只被余弦捞到、BM25 未进 TopK：词面分记 0（判决走余弦，用不到）
-                bm25_norm=bm25_map.get((i, j), 0.0),
-            )
-        )
-    return pairs
+            val = float(scores[i, col])
+            if val > best.get(key, 0.0):
+                best[key] = val
+    return best
 
 
 def run_dedup(
@@ -119,15 +78,11 @@ def run_dedup(
     questions = load_questions(excel_path)
     texts = [q.search_text for q in questions]
     n = len(questions)
+    k_use = min(TOP_K, n - 1)
 
-    prog("正在计算 BM25", 0, n)
-    bm25_idx, bm25_norm = bm25_neighbors(texts, k=min(TOP_K, n - 1))
-
+    # ---- 先试向量服务：成功走纯余弦；失败/未配置才回头算 BM25 托底 ----
     has_vectors = False
     fallback = ""
-    cos_idx = None
-    vectors = None
-    # 没配服务或请求失败：has_vectors=False，后面 score() 自动只用 BM25
     if cfg.embed_enabled:
         prog("正在调用向量服务", 0, n)
         try:
@@ -139,15 +94,24 @@ def run_dedup(
                 on_progress=lambda c, t, m: prog(m, c, t),
             )
             prog("正在计算语义相似度", n, n)
-            cos_idx, _ = cosine_neighbors(vectors, k=min(TOP_K, n - 1))
             has_vectors = True
         except EmbedError as exc:
             fallback = str(exc)
-            vectors = None
-            has_vectors = False
 
-    prog("正在收集候选对")
-    pairs = _collect_pairs(n, bm25_idx, bm25_norm, cos_idx, vectors)
+    if has_vectors:
+        cos_idx, cos_sim = cosine_neighbors(vectors, k=k_use)
+        pairs = [
+            PairResult(i=i, j=j, cosine=s, bm25_norm=0.0)
+            for (i, j), s in _topk_score_map(n, cos_idx, cos_sim).items()
+        ]
+    else:
+        prog("正在计算 BM25（未配置向量服务，文本托底）", 0, n)
+        bm25_idx, bm25_norm = bm25_neighbors(texts, k=k_use)
+        pairs = [
+            PairResult(i=i, j=j, cosine=None, bm25_norm=s)
+            for (i, j), s in _topk_score_map(n, bm25_idx, bm25_norm).items()
+        ]
+
     prog("完成", n, n)
     return RunResult(
         questions=questions,

@@ -22,10 +22,9 @@ seekdb 适合「会长大的持久知识库 + 在线混合检索」。本工具�
 
 ```
 读 Excel
-  → 汉字 2/3-gram + BM25（必开）
-  → 可选：远程 Ollama / vLLM 批量 embedding
-  → numpy 分块精确余弦，每题 Top50
-  → 候选 = BM25 Top50 ∪ 向量 Top50；判决纯余弦（无向量时纯 BM25）
+  → 尝试远程 Ollama / vLLM 批量 embedding
+  → 成功：numpy 分块精确余弦，每题 Top50，纯余弦判决
+  → 失败/未配置：汉字 2/3-gram + BM25 Top50 托底判决
   → 分数留内存，滑条只过滤
   → 导出题对
 ```
@@ -85,7 +84,7 @@ OceanBase 的 AI 原生搜索库：向量 + 全文 BM25 + SQL + `DBMS_HYBRID_SEA
 读表 + BM25              < 5 s          两边同量级（seekdb 还要建全文/HNSW 索引）
 远程 embedding           1～10 min      谁都省不掉
 向量近邻                 自研 ~1.3 s    seekdb = 循环 n 次 hybrid（通常更慢）
-收集候选并集             < 0.01 s       可忽略
+收集候选                 < 0.01 s       可忽略
 改阈值                   自研即时       seekdb 易变成再查一遍
 引擎冷启动               无             server 模式数秒～数十秒
 ```

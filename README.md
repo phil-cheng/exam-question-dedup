@@ -59,15 +59,16 @@ python main.py --cli test.xls --threshold 0.75
 
 ## 检索在做什么
 
-1. 字 2/3-gram + BM25，每题 Top50  
-2. 若配置了 embedding，批量打向量，精确余弦再取 Top50  
-3. 两路并集作为候选，写出每对的原始分  
-4. 滑条按判定分（有向量=余弦，无向量=BM25 相对分）过滤并导出题对  
+1. 若配置了 embedding：批量打向量，精确余弦每题 Top50，判决 = 纯余弦  
+2. 没配 embedding 或连接失败：才计算 BM25（字 2/3-gram）Top50，判决 = BM25 相对分（托底）  
+3. 滑条按判定分过滤并导出题对；改阈值不重算  
+4. 两条路径互不混合（实测掺 BM25 进判决是减分、并集召回是零贡献）
 
 设计说明见 `docs/`：
 
 - [需求说明](docs/需求.md)
-- [为何混合 embedding 与 BM25](docs/为何混合embedding与BM25.md)
+- [为何把混合方案改成 BM25 托底](docs/为何把混合方案改成BM25托底.md)
+- [为何给余弦加 BM25 提升不了结果](docs/为何给余弦加BM25提升不了结果.md)
 - [为何不整段清洗检索文本](docs/为何不整段清洗检索文本.md)
 - [如何选择 embedding 模型](docs/如何选择embedding模型.md)
 - [自研 vs seekdb](docs/方案对比-自研与seekdb.md)
@@ -83,7 +84,7 @@ powershell -ExecutionPolicy Bypass -File scripts/build_exe.ps1
 ## 目录
 
 ```
-app/                 读表、分词、BM25、远程向量、候选并集与判定、界面
+app/                 读表、远程向量/BM25 托底、余弦判定、界面
 docs/                需求与方案讨论
 scripts/build_exe.ps1
 data-validation/     66 题特征集、全量分数 scores.csv 与导出脚本

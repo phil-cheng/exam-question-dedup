@@ -7,7 +7,7 @@ import bm25s
 
 from app.textutil import tokenize
 
-TOP_K = 50
+TOP_K = 50  # 万级足够（66 题集真重复余弦排名 ≤6）；若某知识点簇特别肥致字面近重复掉出，调到 100 即可，不要恢复 BM25 并集（见 docs/为何给余弦加BM25提升不了结果.md）
 
 
 def bm25_neighbors(texts: list[str], k: int = TOP_K) -> tuple[np.ndarray, np.ndarray]:
