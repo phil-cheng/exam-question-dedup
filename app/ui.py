@@ -12,7 +12,7 @@ from tkinter import filedialog, messagebox, ttk
 import customtkinter as ctk
 
 from app.compare import CompareDialog
-from app.config import AppConfig, load_config, save_config, template_path
+from app.config import AppConfig, icon_path, load_config, save_config, template_path
 from app.embed import EmbedError, probe_embed
 from app.excel_io import TemplateError, export_pairs
 from app.pipeline import RunResult, run_dedup
@@ -54,7 +54,26 @@ class DedupApp(ctk.CTk):
         self._compare_win: CompareDialog | None = None
 
         self._build()
+        self._apply_icon()
+        # CTk 初始化稍后可能把图标改回去，再刷一次
+        self.after(200, self._apply_icon)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    def _apply_icon(self) -> None:
+        """给主窗和后续弹出窗换上产品图标，避免继续显示 Python 默认图标。"""
+        path = icon_path()
+        if not path.is_file():
+            return
+        ico = str(path)
+        try:
+            self.iconbitmap(ico)
+        except tk.TclError:
+            return
+        # Windows 上 default 会传给之后新建的 Toplevel
+        try:
+            self.iconbitmap(default=ico)
+        except tk.TclError:
+            pass
 
     def _build(self) -> None:
         pad = {"padx": 16, "pady": 8}

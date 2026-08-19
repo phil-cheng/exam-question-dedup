@@ -26,6 +26,14 @@ def template_path() -> Path:
     return resource_dir() / "template.xls"
 
 
+def icon_path() -> Path:
+    """窗口 / 任务栏图标。打包后在解压目录，开发时在 assets/。"""
+    packed = resource_dir() / "app.ico"
+    if packed.is_file():
+        return packed
+    return resource_dir() / "assets" / "app.ico"
+
+
 @dataclass
 class AppConfig:
     embed_base_url: str = ""

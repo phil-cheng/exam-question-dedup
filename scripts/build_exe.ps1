@@ -13,8 +13,10 @@ Get-ChildItem -Path .\dist -Filter "*.exe" -File -ErrorAction SilentlyContinue |
 
 & $pyi --noconfirm --clean --onefile --windowed `
     --name "QuestionDedup" `
+    --icon "assets\app.ico" `
     --specpath . `
     --add-data "template.xls;." `
+    --add-data "assets\app.ico;." `
     --collect-all customtkinter `
     --collect-all bm25s `
     --hidden-import xlrd `
