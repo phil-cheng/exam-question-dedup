@@ -31,10 +31,15 @@ class AppConfig:
     embed_base_url: str = ""
     embed_model: str = ""
     embed_api_key: str = ""
+    # 默认开语义；关掉后即使填了向量服务也走 BM25，配置仍保留
+    semantic_enabled: bool = True
 
     @property
     def embed_enabled(self) -> bool:
-        return bool(self.embed_base_url.strip() and self.embed_model.strip())
+        """真正走向量路径：开关打开且已填写 URL + 模型。"""
+        return self.semantic_enabled and bool(
+            self.embed_base_url.strip() and self.embed_model.strip()
+        )
 
 
 def config_path() -> Path:
@@ -55,6 +60,9 @@ def load_config() -> AppConfig:
     cfg.embed_base_url = str(raw.get("embed_base_url", "") or "")
     cfg.embed_model = str(raw.get("embed_model", "") or "")
     cfg.embed_api_key = str(raw.get("embed_api_key", "") or "")
+    # 旧配置没有该键时默认开启，避免升级后悄悄关掉语义
+    sem = raw.get("semantic_enabled", True)
+    cfg.semantic_enabled = True if sem is None else bool(sem)
     return cfg
 
 

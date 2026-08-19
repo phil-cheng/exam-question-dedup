@@ -1,8 +1,8 @@
 """
 查重主流程（只算一次，滑条事后过滤）：
 
-    读表 → 尝试远程向量：成功 → 余弦 Top50 → 纯余弦判决
-                        失败/未配置 → BM25 Top50 → BM25 相对分判决（托底）
+    读表 → 语义开且向量成功 → 余弦 Top50 → 纯余弦判决
+          语义关 / 失败 / 未配置 → BM25 Top50 → BM25 相对分判决（托底）
 
 两条路径互不混合：实测掺 BM25 进判决是减分、并集召回是零贡献，
 依据见 docs/为何给余弦加BM25提升不了结果.md。
@@ -80,7 +80,7 @@ def run_dedup(
     n = len(questions)
     k_use = min(TOP_K, n - 1)
 
-    # ---- 先试向量服务：成功走纯余弦；失败/未配置才回头算 BM25 托底 ----
+    # ---- 语义开才试向量：成功走纯余弦；关掉 / 失败 / 未配置走 BM25 ----
     has_vectors = False
     fallback = ""
     if cfg.embed_enabled:
@@ -105,7 +105,13 @@ def run_dedup(
             for (i, j), s in _topk_score_map(n, cos_idx, cos_sim).items()
         ]
     else:
-        prog("正在计算 BM25（未配置向量服务，文本托底）", 0, n)
+        if not cfg.semantic_enabled:
+            bm25_why = "已关闭语义查重"
+        elif fallback:
+            bm25_why = "向量失败，文本托底"
+        else:
+            bm25_why = "未配置向量服务，文本托底"
+        prog(f"正在计算 BM25（{bm25_why}）", 0, n)
         bm25_idx, bm25_norm = bm25_neighbors(texts, k=k_use)
         pairs = [
             PairResult(i=i, j=j, cosine=None, bm25_norm=s)

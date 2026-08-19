@@ -41,6 +41,7 @@ class DedupApp(ctk.CTk):
         self.cfg: AppConfig = load_config()
         self.result: RunResult | None = None
         self.excel_path = tk.StringVar(value="")
+        self.semantic_var = tk.BooleanVar(value=self.cfg.semantic_enabled)
         self.url_var = tk.StringVar(value=self.cfg.embed_base_url)
         self.model_var = tk.StringVar(value=self.cfg.embed_model)
         self.key_var = tk.StringVar(value=self.cfg.embed_api_key)
@@ -66,7 +67,7 @@ class DedupApp(ctk.CTk):
         step_font = ctk.CTkFont(size=13)
         for line in (
             "1、下载模板并按格式填写试题。",
-            "2、先配置向量模型（推荐 Qwen3-Embedding-8B）再做语义查重；未配置则自动用文本（BM25）查重。",
+            "2、先配置向量模型（推荐 Qwen3-Embedding-8B）再做语义查重；也可关闭语义查重，仅用文本（BM25）。",
             "3、查重结束后调节相似度滑轨；双击或回车打开左右比对，可用上一对 / 下一对连续复核。",
             "4、备注：系统通过题干 + 非空选项进行比较。",
         ):
@@ -78,8 +79,23 @@ class DedupApp(ctk.CTk):
         emb = ctk.CTkFrame(root)
         emb.pack(fill="x", **pad)
 
+        sem_row = ctk.CTkFrame(emb, fg_color="transparent")
+        sem_row.pack(fill="x", padx=8, pady=(10, 4))
+        ctk.CTkCheckBox(
+            sem_row,
+            text="开启语义查重",
+            variable=self.semantic_var,
+            width=130,
+        ).pack(side="left")
+        ctk.CTkLabel(
+            sem_row,
+            text="关闭后走文本（BM25），下方向量配置会保留",
+            text_color=("gray40", "gray65"),
+            anchor="w",
+        ).pack(side="left", padx=(8, 0))
+
         url_row = ctk.CTkFrame(emb, fg_color="transparent")
-        url_row.pack(fill="x", padx=8, pady=(10, 4))
+        url_row.pack(fill="x", padx=8, pady=(4, 4))
         ctk.CTkLabel(url_row, text="向量服务 URL", width=100, anchor="w").pack(side="left")
         ctk.CTkEntry(
             url_row,
@@ -250,6 +266,7 @@ class DedupApp(ctk.CTk):
         self.tree.bind("<Return>", self._on_tree_open)
 
     def _sync_cfg_from_form(self) -> None:
+        self.cfg.semantic_enabled = bool(self.semantic_var.get())
         self.cfg.embed_base_url = self.url_var.get().strip()
         self.cfg.embed_model = self.model_var.get().strip()
         self.cfg.embed_api_key = self.key_var.get().strip()
@@ -313,6 +330,13 @@ class DedupApp(ctk.CTk):
             messagebox.showwarning("请稍候", "正在处理，请完成后再保存配置。")
             return
         self._sync_cfg_from_form()
+        # 关掉语义：保留向量字段原样写入，不连服务验证
+        if not self.cfg.semantic_enabled:
+            self._write_cfg(
+                "已保存",
+                "语义查重已关闭，查重将只使用文本（BM25）。向量配置已保留，可随时重新开启。",
+            )
+            return
         url = self.cfg.embed_base_url
         model = self.cfg.embed_model
         # 三项都空：纯文本模式，直接存
@@ -322,7 +346,7 @@ class DedupApp(ctk.CTk):
         if not url or not model:
             messagebox.showwarning(
                 "配置不完整",
-                "请同时填写向量服务 URL 和模型名；若只用文本查重，请点「清空配置」。",
+                "请同时填写向量服务 URL 和模型名；若只用文本查重，可关闭语义查重或点「清空配置」。",
             )
             return
         self.busy = True
@@ -372,6 +396,7 @@ class DedupApp(ctk.CTk):
         if self.busy:
             messagebox.showwarning("请稍候", "正在处理，请完成后再清空。")
             return
+        self.semantic_var.set(True)
         self.url_var.set("")
         self.model_var.set("")
         self.key_var.set("")

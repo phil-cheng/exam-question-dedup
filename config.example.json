@@ -1,5 +1,6 @@
 {
   "embed_base_url": "",
   "embed_model": "",
-  "embed_api_key": ""
+  "embed_api_key": "",
+  "semantic_enabled": true
 }
