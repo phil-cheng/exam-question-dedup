@@ -88,7 +88,7 @@ class DedupApp(ctk.CTk):
         ).pack(side="left", fill="x", expand=True, padx=(6, 0))
 
         mk_row = ctk.CTkFrame(emb, fg_color="transparent")
-        mk_row.pack(fill="x", padx=8, pady=(4, 10))
+        mk_row.pack(fill="x", padx=8, pady=(4, 4))
         ctk.CTkLabel(mk_row, text="模型", width=100, anchor="w").pack(side="left")
         ctk.CTkEntry(
             mk_row, textvariable=self.model_var, placeholder_text="qwen3-embedding:0.6b", width=220
@@ -100,11 +100,20 @@ class DedupApp(ctk.CTk):
             placeholder_text="在线服务必填，本地可空",
             show="*",
             width=240,
-        ).pack(side="left", padx=(6, 12))
-        self.btn_save = ctk.CTkButton(mk_row, text="保存配置", width=90, command=self._save_cfg)
-        self.btn_save.pack(side="left")
+        ).pack(side="left", padx=(6, 0))
+
+        btn_row = ctk.CTkFrame(emb, fg_color="transparent")
+        btn_row.pack(fill="x", padx=8, pady=(0, 10))
+        # 与上一行「模型」标签齐平，窄窗口也不挤掉输入框
+        ctk.CTkLabel(btn_row, text="", width=100).pack(side="left")
+        self.btn_test = ctk.CTkButton(
+            btn_row, text="连接测试", width=90, command=self._test_conn, **_IO_BTN
+        )
+        self.btn_test.pack(side="left", padx=(6, 0))
+        self.btn_save = ctk.CTkButton(btn_row, text="保存配置", width=90, command=self._save_cfg)
+        self.btn_save.pack(side="left", padx=(8, 0))
         self.btn_clear = ctk.CTkButton(
-            mk_row, text="清空配置", width=90, command=self._clear_cfg, **_IO_BTN
+            btn_row, text="清空配置", width=90, command=self._clear_cfg, **_IO_BTN
         )
         self.btn_clear.pack(side="left", padx=(8, 0))
 
@@ -245,6 +254,60 @@ class DedupApp(ctk.CTk):
         self.cfg.embed_model = self.model_var.get().strip()
         self.cfg.embed_api_key = self.key_var.get().strip()
 
+    def _set_cfg_btns(self, state: str) -> None:
+        self.btn_test.configure(state=state)
+        self.btn_save.configure(state=state)
+        self.btn_clear.configure(state=state)
+
+    def _form_embed_fields(self) -> tuple[str, str, str]:
+        return (
+            self.url_var.get().strip(),
+            self.model_var.get().strip(),
+            self.key_var.get().strip(),
+        )
+
+    def _test_conn(self) -> None:
+        """只探测当前表单里的接口，不写 config.json。"""
+        if self.busy:
+            messagebox.showwarning("请稍候", "正在处理，请完成后再测试连接。")
+            return
+        url, model, key = self._form_embed_fields()
+        if not url or not model:
+            messagebox.showwarning("配置不完整", "请先填写向量服务 URL 和模型名。")
+            return
+        self.busy = True
+        self.btn_run.configure(state="disabled")
+        self._set_cfg_btns("disabled")
+        self.status.set("正在测试向量服务…")
+        threading.Thread(target=self._test_conn_worker, args=(url, model, key), daemon=True).start()
+
+    def _test_conn_worker(self, url: str, model: str, key: str) -> None:
+        try:
+            dim = probe_embed(url, model, key)
+        except EmbedError as exc:
+            msg = str(exc)
+            self.after(0, lambda m=msg: self._test_conn_done(False, m))
+            return
+        except Exception as exc:  # noqa: BLE001
+            msg = f"测试失败：{exc}"
+            self.after(0, lambda m=msg: self._test_conn_done(False, m))
+            return
+        self.after(0, lambda d=dim: self._test_conn_done(True, f"向量服务可用，维度 {d}。"))
+
+    def _test_conn_done(self, ok: bool, detail: str) -> None:
+        self.busy = False
+        self.btn_run.configure(state="normal")
+        self._set_cfg_btns("normal")
+        if ok:
+            self.status.set("连接测试通过")
+            messagebox.showinfo(
+                "连接成功",
+                f"{detail}\n配置尚未保存，确认无误后请点「保存配置」。",
+            )
+            return
+        self.status.set("连接测试失败")
+        messagebox.showerror("连接失败", f"{detail}\n\n请检查地址、模型或 API Key。")
+
     def _save_cfg(self) -> None:
         if self.busy:
             messagebox.showwarning("请稍候", "正在处理，请完成后再保存配置。")
@@ -263,8 +326,8 @@ class DedupApp(ctk.CTk):
             )
             return
         self.busy = True
-        self.btn_save.configure(state="disabled")
-        self.btn_clear.configure(state="disabled")
+        self.btn_run.configure(state="disabled")
+        self._set_cfg_btns("disabled")
         self.status.set("正在验证向量服务…")
         threading.Thread(target=self._validate_and_save, daemon=True).start()
 
@@ -285,15 +348,15 @@ class DedupApp(ctk.CTk):
 
     def _save_ok(self, dim: int) -> None:
         self.busy = False
-        self.btn_save.configure(state="normal")
-        self.btn_clear.configure(state="normal")
+        self.btn_run.configure(state="normal")
+        self._set_cfg_btns("normal")
         self._write_cfg("验证通过，已保存", f"向量服务可用，维度 {dim}。")
         self.status.set("向量服务验证通过")
 
     def _save_failed(self, msg: str) -> None:
         self.busy = False
-        self.btn_save.configure(state="normal")
-        self.btn_clear.configure(state="normal")
+        self.btn_run.configure(state="normal")
+        self._set_cfg_btns("normal")
         self.status.set("向量服务验证失败，未保存")
         messagebox.showerror("无法保存", f"{msg}\n\n配置未写入，请检查地址、模型或 API Key。")
 
@@ -361,6 +424,7 @@ class DedupApp(ctk.CTk):
         self.busy = True
         self.btn_run.configure(state="disabled")
         self.btn_export.configure(state="disabled")
+        self._set_cfg_btns("disabled")
         self._close_compare()
         self.progress.set(0)
         self.status.set("正在查重…")
@@ -392,6 +456,7 @@ class DedupApp(ctk.CTk):
     def _fail(self, msg: str) -> None:
         self.busy = False
         self.btn_run.configure(state="normal")
+        self._set_cfg_btns("normal")
         self.progress.set(0)
         self.status.set(msg)
         messagebox.showerror("无法查重", msg)
@@ -399,6 +464,7 @@ class DedupApp(ctk.CTk):
     def _ok(self, result: RunResult) -> None:
         self.busy = False
         self.btn_run.configure(state="normal")
+        self._set_cfg_btns("normal")
         self.progress.set(1)
         self.result = result
         mode = "语义（余弦）" if result.has_vectors else "仅文本（BM25）"
